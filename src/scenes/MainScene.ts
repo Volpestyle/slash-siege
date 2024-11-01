@@ -1,29 +1,48 @@
+// src/scenes/MainScene.ts
+import { Player } from "../sprites/Player";
+
 export class MainScene extends Phaser.Scene {
+  private player!: Player;
+  private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
+
   constructor() {
     super({ key: "MainScene" });
   }
 
   preload(): void {
-    // Load assets here
-    this.load.setBaseURL("http://labs.phaser.io");
-    this.load.image("sky", "assets/skies/space3.png");
-    this.load.image("logo", "assets/sprites/phaser3-logo.png");
-    this.load.image("red", "assets/particles/red.png");
+    // Add this method
+    // Load the player sprite sheet
+    this.load.atlas(
+      "player",
+      "assets/animations/player.png",
+      "assets/animations/player.json"
+    );
   }
 
   create(): void {
-    this.add.image(400, 300, "sky");
+    // Add a colored background
+    this.cameras.main.setBackgroundColor("#ffffff");
 
-    const logo = this.add.image(400, 100, "logo");
+    // Create player
+    this.player = new Player(this, 400, 300, true);
 
-    // Add some simple animation
-    this.tweens.add({
-      targets: logo,
-      y: 450,
-      duration: 2000,
-      ease: "Power2",
-      yoyo: true,
-      repeat: -1,
-    });
+    // Safe keyboard initialization
+    if (this.input.keyboard) {
+      this.cursors = this.input.keyboard.createCursorKeys();
+    } else {
+      console.warn("Keyboard input not available");
+      this.cursors = {
+        up: { isDown: false },
+        down: { isDown: false },
+        left: { isDown: false },
+        right: { isDown: false },
+        space: { isDown: false },
+        shift: { isDown: false },
+      } as Phaser.Types.Input.Keyboard.CursorKeys;
+    }
+  }
+
+  update(time: number, delta: number): void {
+    this.player.update(this.cursors, delta);
   }
 }
