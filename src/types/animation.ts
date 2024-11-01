@@ -51,6 +51,4 @@ export interface PlayerState {
   direction: Direction;
   inputDirection: Direction | null;
   isAccelerating: boolean;
-  runStartProgress: number; // 0 to 1
-  runStopProgress: number; // 0 to 1
 }

@@ -1,5 +1,6 @@
 // src/scenes/MainScene.ts
 import { Player } from "../sprites/Player";
+import { DebugMode } from "../types/spriteDebug";
 
 export class MainScene extends Phaser.Scene {
   private player!: Player;
@@ -24,7 +25,7 @@ export class MainScene extends Phaser.Scene {
     this.cameras.main.setBackgroundColor("#ffffff");
 
     // Create player
-    this.player = new Player(this, 400, 300, true);
+    this.player = new Player(this, 400, 300, { debugMode: DebugMode.Basic });
 
     // Safe keyboard initialization
     if (this.input.keyboard) {

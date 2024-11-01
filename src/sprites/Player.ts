@@ -1,307 +1,246 @@
 import { ANIMATION } from "../constants/animation";
-import {
-  Direction,
-  AnimationName,
-  AnimationState,
-  PhysicsState,
-  PlayerState,
-} from "../types/animation";
-import { SpriteDebug } from "../utils/SpriteDebug";
+import { DebugMode, DebugSpriteConfig } from "../types/spriteDebug";
+import { DebugComponent } from "../utils/SpriteDebug";
+
+type Direction = "left" | "right";
+type AnimationState = "idle" | "runStart" | "runLoop" | "runStop" | "runSwitch";
 
 export class Player extends Phaser.Physics.Arcade.Sprite {
-  private static readonly MAX_SPEED = 300;
-  private static readonly INITIAL_ACCELERATION = 300;
-  private static readonly FULL_ACCELERATION = 1500;
-  private static readonly RUN_STOP_DECELERATION = 1200;
-  private static readonly IDLE_DECELERATION = 2400;
-  private static readonly MIN_SPEED_FOR_RUNNING = 50;
-  private static readonly DIRECTION_SWITCH_THRESHOLD = 0.4;
-  private static readonly RUN_START_COMMITMENT_POINT = 0.3;
+  private static readonly MAX_SPEED = 500;
+  private static readonly ACCELERATION = 1500;
+  private static readonly RUN_START_ACCELERATION = 1000;
+  private static readonly RUN_START_INITIAL_ACCELERATION = 100;
+  private static readonly INITIAL_FRAMES_THRESHOLD = 7;
+  private static readonly IDLE_DECELERATION = 3000;
+  private static readonly RUN_STOP_DECELERATION = 2000;
+  private static readonly DIRECTION_SWITCH_THRESHOLD = 200;
+  private static readonly RUN_STOP_THRESHOLD = 300;
 
-  private physics: PhysicsState = {
-    velocity: 0,
-    maxSpeed: Player.MAX_SPEED,
-    acceleration: Player.INITIAL_ACCELERATION,
-    deceleration: Player.RUN_STOP_DECELERATION,
-  };
-
-  private playerState: PlayerState = {
-    animationState: "idle",
-    direction: "right",
-    inputDirection: null,
-    isAccelerating: false,
-    runStartProgress: 0,
-    runStopProgress: 0,
-  };
-
-  private spriteDebug?: SpriteDebug;
+  private velocity = 0;
+  private currentState: AnimationState = "idle";
+  private moveDirection: Direction = "right";
+  private facingDirection: Direction = "right";
+  private isAccelerating = false;
+  private debugComponent?: DebugComponent;
 
   constructor(
     scene: Phaser.Scene,
     x: number,
     y: number,
-    debug: boolean = false
+    debug?: DebugSpriteConfig
   ) {
     super(scene, x, y, "player");
 
-    // Ensure proper initial positioning
-    this.setOrigin(0.5, 0.5);
-    this.setPosition(x, y);
-
-    // Initialize physics before any movement
+    // Initialize sprite
     this.scene.physics.add.existing(this);
     this.scene.add.existing(this);
-
-    // Ensure zero initial velocity
-    this.setVelocity(0, 0);
-    this.physics.velocity = 0;
-
+    this.setOrigin(0.5, 0.5);
     this.setScale(ANIMATION.SCALE);
     this.setCollideWorldBounds(true);
-    this.setupAnimations();
-    this.setupAnimationListeners();
 
+    // Setup animations
+    this.setupAnimations();
+    this.on("animationcomplete", this.handleAnimationComplete);
+
+    // Start in idle
     this.play(ANIMATION.NAMES.IDLE);
 
+    // Create debug component
     if (debug) {
-      this.spriteDebug = new SpriteDebug(this, {
-        showAnimation: true,
-        showVelocity: true,
-        textOffset: { x: 0, y: -50 },
-      });
+      this.debugComponent = new DebugComponent(this, debug);
     }
   }
 
-  destroy(fromScene?: boolean): void {
-    this.spriteDebug?.destroy();
-    super.destroy(fromScene);
-  }
-
-  private setupAnimationListeners(): void {
-    this.on("animationcomplete", this.handleAnimationComplete);
-    this.on("animationupdate", this.handleAnimationUpdate);
-  }
-
   private setupAnimations(): void {
-    const { FRAMERATE, FRAMES, NAMES } = ANIMATION;
-
     const createAnim = (
-      key: AnimationName,
+      key: string,
       prefix: string,
-      frames: { START: number; END: number },
+      start: number,
+      end: number,
       repeat: number = -1
-    ): void => {
+    ) => {
       this.scene.anims.create({
         key,
         frames: this.scene.anims.generateFrameNames("player", {
           prefix,
-          start: frames.START,
-          end: frames.END,
+          start,
+          end,
           zeroPad: 4,
         }),
-        frameRate: FRAMERATE,
+        frameRate: ANIMATION.FRAMERATE,
         repeat,
       });
     };
 
-    createAnim(NAMES.IDLE, "idle", FRAMES.IDLE);
-    createAnim(NAMES.RUN_START, "run_start", FRAMES.RUN_START, 0);
-    createAnim(NAMES.RUN_LOOP, "run_loop", FRAMES.RUN_LOOP);
-    createAnim(NAMES.RUN_STOP, "run_stop", FRAMES.RUN_STOP, 0);
-    createAnim(NAMES.RUN_SWITCH, "run_switch", FRAMES.RUN_SWITCH, 0);
+    const { FRAMES, NAMES } = ANIMATION;
+    createAnim(NAMES.IDLE, "idle", FRAMES.IDLE.START, FRAMES.IDLE.END);
+    createAnim(
+      NAMES.RUN_START,
+      "run_start",
+      FRAMES.RUN_START.START,
+      FRAMES.RUN_START.END,
+      0
+    );
+    createAnim(
+      NAMES.RUN_LOOP,
+      "run_loop",
+      FRAMES.RUN_LOOP.START,
+      FRAMES.RUN_LOOP.END
+    );
+    createAnim(
+      NAMES.RUN_STOP,
+      "run_stop",
+      FRAMES.RUN_STOP.START,
+      FRAMES.RUN_STOP.END,
+      0
+    );
+    createAnim(
+      NAMES.RUN_SWITCH,
+      "run_switch",
+      FRAMES.RUN_SWITCH.START,
+      FRAMES.RUN_SWITCH.END,
+      0
+    );
   }
 
   private handleAnimationComplete = (
-    animation: Phaser.Animations.Animation
+    anim: Phaser.Animations.Animation
   ): void => {
-    switch (animation.key) {
+    switch (anim.key) {
       case ANIMATION.NAMES.RUN_START:
-        if (this.playerState.inputDirection === this.playerState.direction) {
-          this.transitionTo("runLoop");
-        } else {
-          this.transitionTo("runStop");
-        }
+        this.transitionTo("runLoop");
         break;
       case ANIMATION.NAMES.RUN_STOP:
         this.transitionTo("idle");
         break;
       case ANIMATION.NAMES.RUN_SWITCH:
-        if (this.playerState.inputDirection) {
+        this.facingDirection = this.moveDirection;
+        this.setFlipX(this.facingDirection === "left");
+        if (this.isAccelerating) {
           this.transitionTo("runLoop");
         } else {
-          this.transitionTo("runStop");
+          if (Math.abs(this.velocity) > Player.RUN_STOP_THRESHOLD) {
+            this.transitionTo("runStop");
+          } else {
+            this.transitionTo("idle");
+          }
         }
         break;
     }
   };
 
-  private handleAnimationUpdate = (
-    animation: Phaser.Animations.Animation,
-    frame: number
-  ): void => {
-    const progress = frame / animation.frames.length;
-
-    if (animation.key === ANIMATION.NAMES.RUN_START) {
-      this.playerState.runStartProgress = progress;
-    } else if (animation.key === ANIMATION.NAMES.RUN_STOP) {
-      this.playerState.runStopProgress = progress;
-    }
-  };
-
   private transitionTo(newState: AnimationState): void {
-    const oldState = this.playerState.animationState;
-    this.playerState.animationState = newState;
+    this.currentState = newState;
 
     switch (newState) {
       case "idle":
         this.play(ANIMATION.NAMES.IDLE);
-        this.playerState.isAccelerating = false;
         break;
-
       case "runStart":
         this.play(ANIMATION.NAMES.RUN_START);
-        this.playerState.isAccelerating = true;
-        this.playerState.runStartProgress = 0;
         break;
-
       case "runLoop":
         this.play(ANIMATION.NAMES.RUN_LOOP);
-        this.playerState.isAccelerating = true;
         break;
-
       case "runStop":
         this.play(ANIMATION.NAMES.RUN_STOP);
-        this.playerState.isAccelerating = false;
-        this.playerState.runStopProgress = 0;
         break;
-
       case "runSwitch":
         this.play(ANIMATION.NAMES.RUN_SWITCH);
-        this.playerState.direction = this.playerState.inputDirection!;
-        this.setFlipX(this.playerState.direction === "left");
         break;
     }
+  }
+
+  private getCurrentRunStartAcceleration(): number {
+    if (this.currentState === "runStart" && this.anims.currentFrame) {
+      // Check if we're in the initial frames of run_start
+      return this.anims.currentFrame.index < Player.INITIAL_FRAMES_THRESHOLD
+        ? Player.RUN_START_INITIAL_ACCELERATION
+        : Player.RUN_START_ACCELERATION;
+    }
+    return Player.ACCELERATION;
   }
 
   update(cursors: Phaser.Types.Input.Keyboard.CursorKeys, delta: number): void {
     if (delta === 0) return;
 
-    const wasStill = this.physics.velocity === 0;
-
-    const newInputDirection: Direction | null = cursors.left?.isDown
+    const deltaSeconds = delta / 1000;
+    const newDirection: Direction | null = cursors.left.isDown
       ? "left"
-      : cursors.right?.isDown
+      : cursors.right.isDown
       ? "right"
       : null;
 
-    if (wasStill && newInputDirection) {
-      console.log("Starting movement:", {
-        position: { x: this.x, y: this.y },
-        direction: newInputDirection,
-      });
-    }
+    // Handle direction changes and key states
+    if (newDirection) {
+      const oppositeDirection = newDirection !== this.facingDirection;
+      const aboveThreshold =
+        Math.abs(this.velocity) > Player.DIRECTION_SWITCH_THRESHOLD;
 
-    if (newInputDirection !== this.playerState.inputDirection) {
-      this.handleDirectionChange(newInputDirection);
-    }
-
-    this.updatePhysics(delta);
-    this.updateState();
-
-    this.playerState.inputDirection = newInputDirection;
-  }
-
-  private handleDirectionChange(newDirection: Direction | null): void {
-    console.log("Direction change:", {
-      newDirection,
-      position: { x: this.x, y: this.y },
-      velocity: this.physics.velocity,
-    });
-
-    const canSwitchDirection =
-      this.playerState.animationState === "runLoop" ||
-      (this.playerState.animationState === "runStart" &&
-        this.playerState.runStartProgress > Player.DIRECTION_SWITCH_THRESHOLD);
-
-    if (
-      newDirection &&
-      canSwitchDirection &&
-      newDirection !== this.playerState.direction
-    ) {
-      this.transitionTo("runSwitch");
-    } else if (!newDirection) {
-      if (this.playerState.animationState === "runStart") {
-        this.transitionTo("idle");
-      } else if (this.playerState.animationState === "runLoop") {
-        this.transitionTo("runStop");
+      if (
+        oppositeDirection &&
+        aboveThreshold &&
+        this.currentState !== "runSwitch"
+      ) {
+        this.moveDirection = newDirection;
+        this.transitionTo("runSwitch");
+        this.isAccelerating = true;
+      } else if (
+        this.currentState === "idle" ||
+        this.currentState === "runStop"
+      ) {
+        this.moveDirection = newDirection;
+        this.facingDirection = newDirection;
+        this.setFlipX(newDirection === "left");
+        this.transitionTo("runStart");
+        this.isAccelerating = true;
       }
-    } else if (newDirection && this.playerState.animationState === "idle") {
-      this.playerState.direction = newDirection;
-      this.setFlipX(newDirection === "left");
-      this.transitionTo("runStart");
+
+      this.isAccelerating = true;
+    } else {
+      this.isAccelerating = false;
+      if (this.currentState === "runLoop") {
+        if (Math.abs(this.velocity) > Player.RUN_STOP_THRESHOLD) {
+          this.transitionTo("runStop");
+        } else {
+          this.transitionTo("idle");
+        }
+      } else if (this.currentState === "runStart") {
+        this.transitionTo("idle");
+      }
     }
-  }
 
-  private updatePhysics(delta: number): void {
-    const prevX = this.x;
-
-    const targetVelocity = this.playerState.isAccelerating
-      ? this.playerState.direction === "left"
-        ? -this.physics.maxSpeed
-        : this.physics.maxSpeed
+    // Update velocity based on move direction, not facing direction
+    const targetVelocity = this.isAccelerating
+      ? this.moveDirection === "left"
+        ? -Player.MAX_SPEED
+        : Player.MAX_SPEED
       : 0;
 
-    if (this.playerState.isAccelerating) {
-      let currentAcceleration = Player.FULL_ACCELERATION;
-      if (
-        this.playerState.animationState === "runStart" &&
-        this.playerState.runStartProgress < Player.RUN_START_COMMITMENT_POINT
-      ) {
-        currentAcceleration = Player.INITIAL_ACCELERATION;
-      }
+    // Get acceleration based on current animation frame
+    let acceleration = this.getCurrentRunStartAcceleration();
+    let deceleration = Player.RUN_STOP_DECELERATION;
 
-      this.physics.acceleration = currentAcceleration;
-    } else {
-      this.physics.deceleration =
-        this.playerState.animationState === "idle"
-          ? Player.IDLE_DECELERATION
-          : Player.RUN_STOP_DECELERATION;
+    // Adjust deceleration based on state
+    if (this.currentState === "idle") {
+      deceleration = Player.IDLE_DECELERATION;
     }
 
-    if (this.playerState.isAccelerating) {
-      this.physics.velocity = Phaser.Math.Linear(
-        this.physics.velocity,
+    // Apply acceleration/deceleration
+    if (this.isAccelerating) {
+      this.velocity = Phaser.Math.Linear(
+        this.velocity,
         targetVelocity,
-        ((delta / 1000) * this.physics.acceleration) / this.physics.maxSpeed
+        (deltaSeconds * acceleration) / Player.MAX_SPEED
       );
     } else {
-      this.physics.velocity = Phaser.Math.Linear(
-        this.physics.velocity,
+      this.velocity = Phaser.Math.Linear(
+        this.velocity,
         targetVelocity,
-        ((delta / 1000) * this.physics.deceleration) / this.physics.maxSpeed
+        (deltaSeconds * deceleration) / Player.MAX_SPEED
       );
     }
 
-    this.setVelocityX(this.physics.velocity);
-
-    if (Math.abs(this.x - prevX) > 10) {
-      console.log("Large position change:", {
-        prevX,
-        newX: this.x,
-        velocity: this.physics.velocity,
-        delta,
-      });
-    }
-  }
-
-  private updateState(): void {
-    if (
-      Math.abs(this.physics.velocity) < Player.MIN_SPEED_FOR_RUNNING &&
-      !this.playerState.isAccelerating &&
-      this.playerState.animationState !== "idle" &&
-      this.playerState.animationState !== "runStop"
-    ) {
-      this.transitionTo("idle");
-    }
+    this.setVelocityX(this.velocity);
   }
 }
