@@ -1,23 +1,3 @@
-interface SpriteDebugConfig {
-  showOrigin: boolean;
-  showBounds: boolean;
-  showAnimation: boolean;
-  showVelocity: boolean;
-  showName: boolean;
-  textColor: string;
-  textBackgroundColor: string;
-  textOffset: { x: number; y: number };
-  originColor: number;
-  boundsColor: number;
-}
-
-// Create a type for only the boolean keys of SpriteDebugConfig
-type ToggleableFeature = {
-  [K in keyof SpriteDebugConfig]: SpriteDebugConfig[K] extends boolean
-    ? K
-    : never;
-}[keyof SpriteDebugConfig];
-
 export class SpriteDebug {
   private debugGraphics: Phaser.GameObjects.Graphics;
   private debugText: Phaser.GameObjects.Text;
@@ -39,7 +19,7 @@ export class SpriteDebug {
       showName: false,
       textColor: "#fff",
       textBackgroundColor: "#000",
-      textOffset: { x: 0, y: -50 },
+      textOffset: { x: 0, y: -80 }, // Increased Y offset
       originColor: 0xff0000,
       boundsColor: 0x00ff00,
       ...config,
@@ -52,6 +32,8 @@ export class SpriteDebug {
         backgroundColor: this.config.textBackgroundColor,
         color: this.config.textColor,
         padding: { x: 4, y: 4 },
+        align: "left",
+        fixedWidth: 150, // Fixed width for consistent layout
       })
       .setDepth(1000);
 
@@ -65,63 +47,27 @@ export class SpriteDebug {
     this.debugGraphics.clear();
 
     if (this.config.showOrigin) {
-      this.drawOrigin();
+      this.debugGraphics.lineStyle(1, this.config.originColor);
+      this.debugGraphics.strokeCircle(this.sprite.x, this.sprite.y, 3);
     }
 
     if (this.config.showBounds) {
-      this.drawBounds();
-    }
-
-    if (this.config.showVelocity && "body" in this.sprite) {
-      this.drawVelocity();
+      this.debugGraphics.lineStyle(1, this.config.boundsColor);
+      const bounds = this.sprite.getBounds();
+      this.debugGraphics.strokeRect(
+        bounds.x,
+        bounds.y,
+        bounds.width,
+        bounds.height
+      );
     }
 
     this.updateText();
   }
 
-  private drawOrigin(): void {
-    this.debugGraphics.lineStyle(1, this.config.originColor);
-    this.debugGraphics.strokeCircle(this.sprite.x, this.sprite.y, 3);
-  }
-
-  private drawBounds(): void {
-    this.debugGraphics.lineStyle(1, this.config.boundsColor);
-    const bounds = this.sprite.getBounds();
-    this.debugGraphics.strokeRect(
-      bounds.x,
-      bounds.y,
-      bounds.width,
-      bounds.height
-    );
-  }
-
-  private drawVelocity(): void {
-    const body = (this.sprite as Phaser.Physics.Arcade.Sprite)
-      .body as Phaser.Physics.Arcade.Body;
-    if (body) {
-      const velocity = new Phaser.Math.Vector2(
-        body.velocity.x,
-        body.velocity.y
-      );
-      if (!velocity.equals(Phaser.Math.Vector2.ZERO)) {
-        this.debugGraphics.lineStyle(1, 0xff00ff);
-        const velocityScale = 0.1; // Scale down the velocity for visualization
-        this.debugGraphics.lineBetween(
-          this.sprite.x,
-          this.sprite.y,
-          this.sprite.x + velocity.x * velocityScale,
-          this.sprite.y + velocity.y * velocityScale
-        );
-      }
-    }
-  }
-
   private updateText(): void {
     const textParts: string[] = [];
-
-    if (this.config.showName) {
-      textParts.push(`Name: ${this.sprite.name || "unnamed"}`);
-    }
+    const bounds = this.sprite.getBounds();
 
     if (this.config.showAnimation && "anims" in this.sprite) {
       const sprite = this.sprite as Phaser.GameObjects.Sprite;
@@ -137,17 +83,23 @@ export class SpriteDebug {
       const body = (this.sprite as Phaser.Physics.Arcade.Sprite)
         .body as Phaser.Physics.Arcade.Body;
       if (body) {
-        textParts.push(`Vel X: ${Math.round(body.velocity.x)}`);
-        textParts.push(`Vel Y: ${Math.round(body.velocity.y)}`);
+        // Format velocity to 1 decimal place
+        const vx = Math.round(body.velocity.x * 10) / 10;
+        const vy = Math.round(body.velocity.y * 10) / 10;
+        textParts.push(`Vel X: ${vx}`);
+        if (vy !== 0) {
+          textParts.push(`Vel Y: ${vy}`);
+        }
       }
     }
 
     if (textParts.length > 0) {
+      // Position text above sprite bounds
+      const textX = bounds.centerX + this.config.textOffset.x - 75; // Center the text (half of fixedWidth)
+      const textY = bounds.y + this.config.textOffset.y;
+
       this.debugText
-        .setPosition(
-          this.sprite.x + this.config.textOffset.x,
-          this.sprite.y + this.config.textOffset.y
-        )
+        .setPosition(textX, textY)
         .setText(textParts.join("\n"))
         .setVisible(true);
     } else {
@@ -161,8 +113,28 @@ export class SpriteDebug {
     this.debugText.destroy();
   }
 
-  // Updated toggle method with proper typing
   public toggle(feature: ToggleableFeature, value?: boolean): void {
-    this.config[feature] = value ?? !this.config[feature];
+    if (typeof this.config[feature] === "boolean") {
+      this.config[feature] = value ?? !this.config[feature];
+    }
   }
 }
+
+interface SpriteDebugConfig {
+  showOrigin: boolean;
+  showBounds: boolean;
+  showAnimation: boolean;
+  showVelocity: boolean;
+  showName: boolean;
+  textColor: string;
+  textBackgroundColor: string;
+  textOffset: { x: number; y: number };
+  originColor: number;
+  boundsColor: number;
+}
+
+type ToggleableFeature = {
+  [K in keyof SpriteDebugConfig]: SpriteDebugConfig[K] extends boolean
+    ? K
+    : never;
+}[keyof SpriteDebugConfig];
