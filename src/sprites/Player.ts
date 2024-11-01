@@ -8,7 +8,7 @@ type AnimationState = "idle" | "runStart" | "runLoop" | "runStop" | "runSwitch";
 export class Player extends Phaser.Physics.Arcade.Sprite {
   private static readonly MAX_SPEED = 500;
   private static readonly ACCELERATION = 1500;
-  private static readonly RUN_START_ACCELERATION = 1000;
+  private static readonly RUN_START_ACCELERATION = 2000;
   private static readonly RUN_START_INITIAL_ACCELERATION = 100;
   private static readonly INITIAL_FRAMES_THRESHOLD = 7;
   private static readonly IDLE_DECELERATION = 3000;
