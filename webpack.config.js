@@ -7,6 +7,7 @@ module.exports = {
   output: {
     filename: "bundle.js",
     path: path.resolve(__dirname, "dist"),
+    publicPath: "", // This ensures assets are served from the correct path
   },
   module: {
     rules: [
@@ -23,6 +24,7 @@ module.exports = {
   plugins: [
     new HtmlWebpackPlugin({
       template: "src/index.html",
+      filename: "index.html",
     }),
     new CopyWebpackPlugin({
       patterns: [
