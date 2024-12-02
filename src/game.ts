@@ -4,8 +4,12 @@ import { MainScene } from "./scenes/MainScene";
 
 const config: Phaser.Types.Core.GameConfig = {
   type: Phaser.AUTO,
-  width: 800,
-  height: 600,
+  scale: {
+    mode: Phaser.Scale.RESIZE,
+    width: window.innerWidth,
+    height: window.innerHeight,
+    autoCenter: Phaser.Scale.CENTER_BOTH,
+  },
   physics: {
     default: "arcade",
     arcade: {
@@ -15,4 +19,10 @@ const config: Phaser.Types.Core.GameConfig = {
   scene: MainScene,
 };
 
-new Phaser.Game(config);
+// Create game instance
+const game = new Phaser.Game(config);
+
+// Add resize listener to update game size when window is resized
+window.addEventListener("resize", () => {
+  game.scale.resize(window.innerWidth, window.innerHeight);
+});

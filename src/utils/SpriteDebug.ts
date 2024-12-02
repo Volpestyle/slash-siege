@@ -165,12 +165,12 @@ class SpriteDebug {
     this.registrationPoints.setVisible(this.showFrameDebug);
   }
 
-  public destroy = (): void => {
+  public destroy(): void {
     this.scene.events.off("update", this.update, this);
     this.debugGraphics.destroy();
     this.debugText.destroy();
     this.registrationPoints.destroy();
-  };
+  }
 }
 
 export class DebugComponent {
@@ -216,7 +216,7 @@ export class DebugComponent {
     this.initializeDebug(mode);
   }
 
-  private destroy = (): void => {
+  public destroy(): void {
     this.spriteDebug?.destroy();
-  };
+  }
 }
