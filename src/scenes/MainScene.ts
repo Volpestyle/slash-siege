@@ -1,10 +1,11 @@
-// src/scenes/MainScene.ts
 import { Player } from "../sprites/Player";
 import { DebugMode } from "../types/spriteDebug";
 
 export class MainScene extends Phaser.Scene {
   private player!: Player;
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
+
+  private platform!: Phaser.GameObjects.Rectangle;
 
   constructor() {
     super({ key: "MainScene" });
@@ -26,6 +27,12 @@ export class MainScene extends Phaser.Scene {
 
     // Create player
     this.player = new Player(this, 400, 300, { debugMode: DebugMode.Basic });
+
+    // Create platform
+    this.platform = this.add.rectangle(100, 800, 800, 100, 0x00ff00);
+    this.physics.add.existing(this.platform, true);
+    // Add collision detection between the player and the platform
+    this.physics.add.collider(this.player, this.platform);
 
     // Safe keyboard initialization
     if (this.input.keyboard) {

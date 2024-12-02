@@ -11,7 +11,7 @@ export interface JumpConfig {
 export interface GroundMovementConfig {
   readonly MAX_SPEED: number;
   readonly MAX_WALK_SPEED: number;
-  readonly ACCELERATION: number;
+  readonly RUN_ACCELERATION: number;
   readonly WALK_ACCELERATION: number;
   readonly RUN_START_ACCELERATION: number;
   readonly RUN_START_INITIAL_ACCELERATION: number;
@@ -21,6 +21,7 @@ export interface GroundMovementConfig {
   readonly WALK_STOP_DECELERATION: number;
   readonly DIRECTION_SWITCH_THRESHOLD: number;
   readonly RUN_STOP_THRESHOLD: number;
+  readonly RUN_STOP_SLOW_THRESHOLD: number;
   readonly WALK_STOP_THRESHOLD: number;
 }
 

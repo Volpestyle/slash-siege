@@ -49,41 +49,53 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
 
     switch (state) {
       case "runJumpLandHeavy":
-        const isMoving = this.cursors.left.isDown || this.cursors.right.isDown;
-        body.setVelocityX(0);
-        this.movementComponent.resetMovementState(); // Reset movement state
+        const isMovingHeavy =
+          this.cursors.left.isDown || this.cursors.right.isDown;
+        // Call finishLanding here before transitioning to continue/stop
+        this.jumpComponent.finishLanding();
         this.animator.transitionTo(
-          isMoving ? "runJumpLandHeavyContinue" : "runJumpLandHeavyStop"
+          isMovingHeavy ? "runJumpLandHeavyContinue" : "runJumpLandHeavyStop"
         );
         break;
 
       case "runJumpLandLight":
-        const hasMovementInput =
+        const isMovingLight =
           this.cursors.left.isDown || this.cursors.right.isDown;
-        body.setVelocityX(0);
-        this.movementComponent.resetMovementState(); // Reset movement state
+        // Call finishLanding here before transitioning to continue/stop
+        this.jumpComponent.finishLanding();
         this.animator.transitionTo(
-          hasMovementInput ? "runJumpLandLightContinue" : "runJumpLandLightStop"
+          isMovingLight ? "runJumpLandLightContinue" : "runJumpLandLightStop"
         );
         break;
 
       case "runJumpLandHeavyContinue":
       case "runJumpLandLightContinue":
-        this.jumpComponent.finishLanding();
         const stillMoving =
           this.cursors.left.isDown || this.cursors.right.isDown;
-        body.setVelocityX(0);
-        this.movementComponent.resetMovementState(); // Reset movement state
-        this.animator.transitionTo(stillMoving ? "runLoop" : "idle");
+        if (stillMoving) {
+          this.animator.transitionTo("runLoop");
+        } else if (
+          Math.abs(body.velocity.x) > GROUND_MOVEMENT_CONFIG.RUN_STOP_THRESHOLD
+        ) {
+          this.animator.transitionTo("runStop");
+        } else if (
+          Math.abs(body.velocity.x) >
+          GROUND_MOVEMENT_CONFIG.RUN_STOP_SLOW_THRESHOLD
+        ) {
+          this.animator.transitionTo("runStopSlow");
+        } else {
+          this.animator.transitionTo("idle");
+        }
         break;
 
       case "runJumpLandHeavyStop":
       case "runJumpLandLightStop":
+        this.animator.transitionTo("idle");
+        break;
+
       case "jumpForwardLand":
       case "jumpNeutralLand":
         this.jumpComponent.finishLanding();
-        body.setVelocityX(0);
-        this.movementComponent.resetMovementState(); // Reset movement state
         this.animator.transitionTo("idle");
         break;
 
@@ -105,22 +117,23 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
 
       case "runSwitch":
         if (!this.jumpComponent.isInJumpState()) {
-          this.animator.setFacingDirection(
-            this.movementComponent.getMoveDirection()
-          );
           if (this.movementComponent.isAccelerating()) {
             this.animator.transitionTo("runLoop");
           } else {
             if (
-              Math.abs((this.body as Phaser.Physics.Arcade.Body).velocity.x) >
+              Math.abs(body.velocity.x) >
               GROUND_MOVEMENT_CONFIG.RUN_STOP_THRESHOLD
             ) {
               this.animator.transitionTo("runStop");
             } else {
-              this.animator.transitionTo("idle");
+              this.animator.transitionTo("runStopSlow");
             }
           }
         }
+        break;
+
+      case "runStopSlow":
+        this.animator.transitionTo("idle");
         break;
     }
   };
@@ -139,14 +152,20 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
       (direction) => this.animator.setFacingDirection(direction)
     );
 
-    // Don't process horizontal movement while jumping or landing
+    // Handle landing deceleration when not holding a direction
+    if (this.jumpComponent.isLanding()) {
+      this.jumpComponent.handleLandingDeceleration(deltaSeconds);
+    }
+
+    // Handle movement if we're not jumping (but allow during landing)
     if (!this.jumpComponent.isInJumpState()) {
       this.movementComponent.handleMovement(
         cursors,
         deltaSeconds,
         () => this.animator.getCurrentState(),
         (state) => this.animator.transitionTo(state),
-        (direction) => this.animator.setFacingDirection(direction)
+        (direction) => this.animator.setFacingDirection(direction),
+        this.jumpComponent.isLanding()
       );
     }
   }

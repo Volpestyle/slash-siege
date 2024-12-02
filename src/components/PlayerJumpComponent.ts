@@ -4,7 +4,10 @@ import {
   Direction,
 } from "../types/animation";
 import { JumpType } from "../types/player-physics";
-import { JUMP_CONFIG } from "../constants/player-physics";
+import {
+  GROUND_MOVEMENT_CONFIG,
+  JUMP_CONFIG,
+} from "../constants/player-physics";
 
 export class PlayerJumpComponent {
   private sprite: Phaser.Physics.Arcade.Sprite;
@@ -18,7 +21,7 @@ export class PlayerJumpComponent {
     velocityApplied: false,
     isLanding: false,
     landingStartVelocity: 0,
-    hasLandingMomentum: false,
+    maxFallVelocity: 0,
   };
 
   constructor(sprite: Phaser.Physics.Arcade.Sprite) {
@@ -35,6 +38,11 @@ export class PlayerJumpComponent {
     const body = this.sprite.body as Phaser.Physics.Arcade.Body;
     const currentState = getCurrentState();
 
+    this.jumpState.maxFallVelocity = Math.max(
+      this.jumpState.maxFallVelocity,
+      body.velocity.y
+    );
+
     // Handle landing before anything else
     if (
       this.jumpState.isFalling &&
@@ -43,16 +51,8 @@ export class PlayerJumpComponent {
       body.velocity.y >= 0 &&
       !currentState.includes("land")
     ) {
-      // Store the horizontal velocity at the moment of landing
       this.jumpState.landingStartVelocity = body.velocity.x;
-      this.jumpState.hasLandingMomentum = true;
-      this.handleLanding(transitionTo);
-      return;
-    }
-
-    // Update landing deceleration
-    if (this.jumpState.isLanding && this.jumpState.hasLandingMomentum) {
-      this.updateLandingDeceleration(currentState);
+      this.handleLanding(transitionTo, cursors);
       return;
     }
 
@@ -67,20 +67,20 @@ export class PlayerJumpComponent {
       !currentState.includes("jump")
     ) {
       this.cleanupJumpListeners();
-
       this.jumpState.isJumping = true;
       this.jumpState.isFalling = false;
       this.jumpState.isLanding = false;
       this.jumpState.hasReleasedSpace = false;
       this.jumpState.velocityApplied = false;
       this.jumpState.jumpStartTime = this.sprite.scene.time.now;
-
-      if (currentState.includes("run") && !currentState.includes("stop")) {
-        this.handleRunJump(body, moveDirection);
+      const direction = cursors.left.isDown ? "left" : "right";
+      setFacingDirection(direction);
+      if (Math.abs(body.velocity.x) > 300) {
+        this.handleRunJump(body, moveDirection, transitionTo);
       } else if (cursors.left.isDown || cursors.right.isDown) {
-        this.handleDirectionalJump(body, cursors, setFacingDirection);
+        this.handleDirectionalJump(body, direction, transitionTo);
       } else {
-        this.handleNeutralJump(body);
+        this.handleNeutralJump(body, transitionTo);
       }
       return;
     }
@@ -104,36 +104,28 @@ export class PlayerJumpComponent {
     }
   }
 
-  private updateLandingDeceleration(currentState: AnimationState): void {
+  public handleLandingDeceleration(deltaSeconds: number): void {
     const body = this.sprite.body as Phaser.Physics.Arcade.Body;
 
-    // Different deceleration rates based on landing type
-    if (currentState.includes("neutral") || currentState.includes("forward")) {
-      // Immediate stop for neutral and directional jumps
-      body.setVelocityX(0);
-      this.jumpState.hasLandingMomentum = false;
-    } else {
-      // For run jumps, get the current animation progress
-      const anim = this.sprite.anims.currentAnim;
-      const progress = this.sprite.anims.getProgress();
+    if (this.jumpState.isLanding) {
+      const newVelocity = Phaser.Math.Linear(
+        body.velocity.x,
+        0,
+        deltaSeconds * (GROUND_MOVEMENT_CONFIG.IDLE_DECELERATION / 1000)
+      );
 
-      if (anim) {
-        // Calculate deceleration based on animation progress
-        const remainingVelocity =
-          this.jumpState.landingStartVelocity * (1 - progress);
-        body.setVelocityX(remainingVelocity);
+      body.setVelocityX(newVelocity);
 
-        // If we're very close to zero velocity, explicitly set it to zero
-        // and mark momentum as finished to prevent further deceleration
-        if (Math.abs(remainingVelocity) < 1) {
-          body.setVelocityX(0);
-          this.jumpState.hasLandingMomentum = false;
-        }
+      if (Math.abs(newVelocity) < 1) {
+        body.setVelocityX(0);
       }
     }
   }
 
-  private handleNeutralJump(body: Phaser.Physics.Arcade.Body): void {
+  private handleNeutralJump(
+    body: Phaser.Physics.Arcade.Body,
+    transitionTo: AnimationHandler
+  ): void {
     this.jumpState.currentJumpType = "neutral";
 
     const frameListener = (
@@ -149,17 +141,15 @@ export class PlayerJumpComponent {
     };
 
     this.sprite.on("animationupdate", frameListener);
-    this.sprite.play("jump-neutral-start");
+    transitionTo("jumpNeutralStart");
   }
 
   private handleDirectionalJump(
     body: Phaser.Physics.Arcade.Body,
-    cursors: Phaser.Types.Input.Keyboard.CursorKeys,
-    setFacingDirection: (direction: Direction) => void
+    moveDirection: Direction,
+    transitionTo: AnimationHandler
   ): void {
     this.jumpState.currentJumpType = "forward";
-    const direction = cursors.left.isDown ? "left" : "right";
-    setFacingDirection(direction);
 
     const frameListener = (
       animation: Phaser.Animations.Animation,
@@ -168,7 +158,7 @@ export class PlayerJumpComponent {
       if (animation.key === "jump-forward-start" && frame.index === 12) {
         console.log("Applying directional jump velocity");
         body.setVelocity(
-          direction === "left"
+          moveDirection === "left"
             ? -JUMP_CONFIG.FORWARD_JUMP_VELOCITY_X
             : JUMP_CONFIG.FORWARD_JUMP_VELOCITY_X,
           JUMP_CONFIG.FORWARD_JUMP_VELOCITY_Y
@@ -179,12 +169,13 @@ export class PlayerJumpComponent {
     };
 
     this.sprite.on("animationupdate", frameListener);
-    this.sprite.play("jump-forward-start");
+    transitionTo("jumpForwardStart");
   }
 
   private handleRunJump(
     body: Phaser.Physics.Arcade.Body,
-    moveDirection: Direction
+    moveDirection: Direction,
+    transitionTo: AnimationHandler
   ): void {
     this.jumpState.currentJumpType = "run";
 
@@ -205,13 +196,13 @@ export class PlayerJumpComponent {
     };
 
     this.sprite.on("animationupdate", frameListener);
-    this.sprite.play("run-jump-start", true);
+    transitionTo("runJumpStart");
   }
 
   private handleFalling(transitionTo: AnimationHandler): void {
     console.log("Transitioning to fall state");
+    this.jumpState.isJumping = false;
     this.jumpState.isFalling = true;
-    this.jumpState.fallStartTime = this.sprite.scene.time.now;
 
     switch (this.jumpState.currentJumpType) {
       case "run":
@@ -226,33 +217,43 @@ export class PlayerJumpComponent {
     }
   }
 
-  private handleLanding(transitionTo: AnimationHandler): void {
+  private handleLanding(
+    transitionTo: AnimationHandler,
+    cursors: Phaser.Types.Input.Keyboard.CursorKeys
+  ): void {
     console.log("Starting landing animation");
+    this.jumpState.isFalling = false;
     this.jumpState.isLanding = true;
-    const fallDuration =
-      this.sprite.scene.time.now - this.jumpState.fallStartTime;
-    const body = this.sprite.body as Phaser.Physics.Arcade.Body;
-
-    // If it's not a run jump, immediately stop
-    if (this.jumpState.currentJumpType !== "run") {
-      body.setVelocityX(0);
-    }
 
     switch (this.jumpState.currentJumpType) {
       case "run":
-        transitionTo(
-          fallDuration > JUMP_CONFIG.HEAVY_LANDING_THRESHOLD
-            ? "runJumpLandHeavy"
-            : "runJumpLandLight"
-        );
+        if (
+          this.jumpState.maxFallVelocity > JUMP_CONFIG.HEAVY_LANDING_THRESHOLD
+        ) {
+          transitionTo("runJumpLandHeavy");
+        } else {
+          transitionTo("runJumpLandLight");
+        }
         break;
       case "forward":
-        transitionTo("jumpForwardLand");
+        if (
+          this.jumpState.maxFallVelocity >
+          JUMP_CONFIG.MAX_HEAVY_LANDING_THRESHOLD
+        ) {
+          transitionTo("runJumpLandHeavy");
+        } else if (this.jumpState.landingStartVelocity > 200) {
+          transitionTo("runJumpLandLight");
+        } else {
+          transitionTo("jumpForwardLand");
+        }
         break;
       case "neutral":
         transitionTo("jumpNeutralLand");
         break;
     }
+
+    // Reset the maximum fall velocity
+    this.jumpState.maxFallVelocity = 0;
   }
 
   private cleanupJumpListeners(): void {
@@ -261,19 +262,12 @@ export class PlayerJumpComponent {
 
   public finishLanding(): void {
     console.log("Finishing landing sequence");
-    const body = this.sprite.body as Phaser.Physics.Arcade.Body;
-
-    // Force velocity to zero at the end of landing
-    body.setVelocityX(0);
-    body.setVelocityY(0);
-
     this.cleanupJumpListeners();
     this.jumpState.isJumping = false;
     this.jumpState.isFalling = false;
     this.jumpState.isLanding = false;
     this.jumpState.velocityApplied = false;
     this.jumpState.landingStartVelocity = 0;
-    this.jumpState.hasLandingMomentum = false;
   }
 
   public destroy(): void {
@@ -281,7 +275,15 @@ export class PlayerJumpComponent {
   }
 
   public isInJumpState(): boolean {
-    return this.jumpState.isJumping || this.jumpState.isLanding;
+    return (
+      this.jumpState.isJumping ||
+      this.jumpState.isFalling ||
+      this.jumpState.isLanding
+    );
+  }
+
+  public isJumping(): boolean {
+    return this.jumpState.isJumping;
   }
 
   public isLanding(): boolean {

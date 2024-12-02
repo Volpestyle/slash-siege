@@ -5,6 +5,7 @@ export type AnimationName =
   | "run-start"
   | "run-loop"
   | "run-stop"
+  | "run-stop-slow"
   | "run-switch"
   | "walk-start"
   | "walk-loop"
@@ -30,6 +31,7 @@ export type AnimationState =
   | "runStart"
   | "runLoop"
   | "runStop"
+  | "runStopSlow"
   | "runSwitch"
   | "walkStart"
   | "walkLoop"
@@ -65,6 +67,7 @@ export interface AnimationConfig {
     readonly RUN_START: AnimationFrames;
     readonly RUN_LOOP: AnimationFrames;
     readonly RUN_STOP: AnimationFrames;
+    readonly RUN_STOP_SLOW: AnimationFrames;
     readonly RUN_SWITCH: AnimationFrames;
     readonly WALK_START: AnimationFrames;
     readonly WALK_LOOP: AnimationFrames;
@@ -89,6 +92,7 @@ export interface AnimationConfig {
     readonly RUN_START: AnimationName;
     readonly RUN_LOOP: AnimationName;
     readonly RUN_STOP: AnimationName;
+    readonly RUN_STOP_SLOW: AnimationName;
     readonly RUN_SWITCH: AnimationName;
     readonly WALK_START: AnimationName;
     readonly WALK_LOOP: AnimationName;

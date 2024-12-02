@@ -13,6 +13,7 @@ export class PlayerMovementComponent {
     isAccelerating: false,
     isWalking: false,
     wasWalking: false,
+    switchTargetDirection: null as Direction | null,
   };
 
   constructor(sprite: Phaser.Physics.Arcade.Sprite) {
@@ -22,6 +23,9 @@ export class PlayerMovementComponent {
   public resetMovementState(): void {
     this.moveState.velocity = 0;
     this.moveState.isAccelerating = false;
+    this.moveState.isWalking = false;
+    this.moveState.wasWalking = false;
+    this.moveState.switchTargetDirection = null;
   }
 
   handleMovement(
@@ -29,7 +33,8 @@ export class PlayerMovementComponent {
     deltaSeconds: number,
     getCurrentState: () => AnimationState,
     transitionTo: AnimationHandler,
-    setFacingDirection: (direction: Direction) => void
+    setFacingDirection: (direction: Direction) => void,
+    isLanding: boolean
   ): void {
     const newDirection: Direction | null = cursors.left.isDown
       ? "left"
@@ -37,63 +42,77 @@ export class PlayerMovementComponent {
       ? "right"
       : null;
 
-    const isNowWalking = cursors.shift.isDown;
-    const walkingStateChanged = this.moveState.isWalking !== isNowWalking;
-    this.moveState.wasWalking = this.moveState.isWalking;
-    this.moveState.isWalking = isNowWalking;
+    this.moveState.isAccelerating = Boolean(newDirection);
 
-    if (newDirection) {
-      this.handleDirectionalMovement(
-        newDirection,
-        walkingStateChanged,
-        getCurrentState,
-        transitionTo,
-        setFacingDirection
-      );
+    const currentState = getCurrentState();
+
+    // Only update walking state and handle normal movement if we're not in a landing state
+    if (!isLanding) {
+      const isNowWalking = cursors.shift.isDown;
+      const walkingStateChanged = this.moveState.isWalking !== isNowWalking;
+      this.moveState.wasWalking = this.moveState.isWalking;
+      this.moveState.isWalking = isNowWalking;
+
+      // Handle run switch state
+      if (currentState === "runSwitch") {
+        this.moveState.moveDirection = this.moveState.switchTargetDirection!;
+        this.moveState.isAccelerating = true;
+
+        if (this.moveState.switchTargetDirection !== newDirection) {
+          transitionTo("runStopSlow");
+          this.moveState.switchTargetDirection = null;
+          this.moveState.isAccelerating = false;
+          return;
+        }
+      }
+
+      if (newDirection) {
+        const oppositeDirection = newDirection !== this.moveState.moveDirection;
+        const aboveThreshold =
+          Math.abs(this.moveState.velocity) >
+          GROUND_MOVEMENT_CONFIG.DIRECTION_SWITCH_THRESHOLD;
+
+        if (walkingStateChanged) {
+          transitionTo(isNowWalking ? "walkStart" : "runStart");
+        }
+
+        if (
+          oppositeDirection &&
+          aboveThreshold &&
+          currentState !== "runSwitch"
+        ) {
+          if (!this.moveState.isWalking) {
+            this.moveState.switchTargetDirection = newDirection;
+            this.moveState.isAccelerating = true;
+            transitionTo("runSwitch");
+            setFacingDirection(newDirection);
+          } else {
+            this.moveState.moveDirection = newDirection;
+            setFacingDirection(newDirection);
+          }
+        } else if (
+          ["idle", "runStop", "runStopSlow", "walkStop"].includes(currentState)
+        ) {
+          transitionTo(this.moveState.isWalking ? "walkStart" : "runStart");
+        }
+        this.moveState.moveDirection = newDirection;
+        setFacingDirection(newDirection);
+        this.moveState.isAccelerating = true;
+      } else {
+        this.handleNoDirectionalMovement(getCurrentState, transitionTo);
+      }
     } else {
-      this.handleNoDirectionalMovement(getCurrentState, transitionTo);
+      // During landing, just update direction and acceleration based on input
+      if (newDirection) {
+        this.moveState.moveDirection = newDirection;
+        setFacingDirection(newDirection);
+        this.moveState.isAccelerating = true;
+      } else {
+        this.moveState.isAccelerating = false;
+      }
     }
 
     this.updateVelocity(deltaSeconds, getCurrentState);
-  }
-
-  private handleDirectionalMovement(
-    newDirection: Direction,
-    walkingStateChanged: boolean,
-    getCurrentState: () => string,
-    transitionTo: (state: AnimationState) => void,
-    setFacingDirection: (direction: Direction) => void
-  ): void {
-    const oppositeDirection = newDirection !== this.moveState.moveDirection;
-    const aboveThreshold =
-      Math.abs(this.moveState.velocity) >
-      GROUND_MOVEMENT_CONFIG.DIRECTION_SWITCH_THRESHOLD;
-    const currentState = getCurrentState();
-
-    if (oppositeDirection && aboveThreshold && currentState !== "runSwitch") {
-      if (!this.moveState.isWalking) {
-        this.moveState.moveDirection = newDirection;
-        transitionTo("runSwitch");
-        this.moveState.isAccelerating = true;
-      } else {
-        this.moveState.moveDirection = newDirection;
-        setFacingDirection(newDirection);
-      }
-    } else if (["idle", "runStop", "walkStop"].includes(currentState)) {
-      this.moveState.moveDirection = newDirection;
-      setFacingDirection(newDirection);
-      transitionTo(this.moveState.isWalking ? "walkStart" : "runStart");
-    }
-
-    if (
-      walkingStateChanged &&
-      !this.moveState.isWalking &&
-      ["walkLoop", "walkStart"].includes(currentState)
-    ) {
-      transitionTo("runStart");
-    }
-
-    this.moveState.isAccelerating = true;
   }
 
   private handleNoDirectionalMovement(
@@ -102,18 +121,20 @@ export class PlayerMovementComponent {
   ): void {
     this.moveState.isAccelerating = false;
     const currentState = getCurrentState();
-    const stopThreshold = this.moveState.isWalking
-      ? GROUND_MOVEMENT_CONFIG.WALK_STOP_THRESHOLD
-      : GROUND_MOVEMENT_CONFIG.RUN_STOP_THRESHOLD;
+    const currentSpeed = Math.abs(this.moveState.velocity);
 
-    if (currentState === "runLoop" || currentState === "walkLoop") {
-      if (Math.abs(this.moveState.velocity) > stopThreshold) {
-        transitionTo(this.moveState.isWalking ? "walkStop" : "runStop");
+    if (currentState === "runLoop" || currentState === "runStart") {
+      if (currentSpeed > GROUND_MOVEMENT_CONFIG.RUN_STOP_THRESHOLD) {
+        transitionTo("runStop");
+      } else if (
+        currentSpeed > GROUND_MOVEMENT_CONFIG.RUN_STOP_SLOW_THRESHOLD
+      ) {
+        transitionTo("runStopSlow");
       } else {
         transitionTo("idle");
       }
-    } else if (currentState === "runStart" || currentState === "walkStart") {
-      transitionTo("idle");
+    } else if (currentState === "walkLoop") {
+      transitionTo("walkStop");
     }
   }
 
@@ -121,6 +142,9 @@ export class PlayerMovementComponent {
     deltaSeconds: number,
     getCurrentState: () => string
   ): void {
+    const body = this.sprite.body as Phaser.Physics.Arcade.Body;
+    this.moveState.velocity = body.velocity.x;
+
     const maxSpeed = this.moveState.isWalking
       ? GROUND_MOVEMENT_CONFIG.MAX_WALK_SPEED
       : GROUND_MOVEMENT_CONFIG.MAX_SPEED;
@@ -148,6 +172,9 @@ export class PlayerMovementComponent {
   private calculateAcceleration(getCurrentState: () => string): number {
     const currentState = getCurrentState();
     const currentFrame = this.sprite.anims.currentFrame?.index;
+    const isLandingContinue =
+      currentState === "runJumpLandLightContinue" ||
+      currentState === "runJumpLandHeavyContinue";
 
     if (currentState === "runStart" && currentFrame !== undefined) {
       return currentFrame < GROUND_MOVEMENT_CONFIG.INITIAL_FRAMES_THRESHOLD
@@ -155,13 +182,17 @@ export class PlayerMovementComponent {
         : GROUND_MOVEMENT_CONFIG.RUN_START_ACCELERATION;
     }
 
+    if (isLandingContinue) {
+      return GROUND_MOVEMENT_CONFIG.RUN_START_ACCELERATION;
+    }
+
     return this.moveState.isWalking
       ? GROUND_MOVEMENT_CONFIG.WALK_ACCELERATION
-      : GROUND_MOVEMENT_CONFIG.ACCELERATION;
+      : GROUND_MOVEMENT_CONFIG.RUN_ACCELERATION;
   }
 
   private calculateDeceleration(getCurrentState: () => string): number {
-    if (getCurrentState() === "idle") {
+    if (["idle", "runStopSlow"].includes(getCurrentState())) {
       return GROUND_MOVEMENT_CONFIG.IDLE_DECELERATION;
     }
     return this.moveState.isWalking
@@ -170,7 +201,11 @@ export class PlayerMovementComponent {
   }
 
   public getMoveDirection(): Direction {
-    return this.moveState.moveDirection;
+    return this.moveState.moveDirection ?? this.moveState.switchTargetDirection;
+  }
+
+  public getSwitchTargetDirection(): Direction | null {
+    return this.moveState.switchTargetDirection;
   }
 
   public isWalking(): boolean {

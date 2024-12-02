@@ -15,6 +15,7 @@ export class PlayerAnimator {
     this.onAnimationComplete = onAnimationComplete;
     this.setupAnimations();
     this.sprite.on("animationcomplete", this.handleAnimationComplete);
+    this.sprite.on("animationstart", this.handleAnimationStart);
     this.play(ANIMATION.NAMES.IDLE);
   }
 
@@ -70,6 +71,13 @@ export class PlayerAnimator {
       "run_stop",
       FRAMES.RUN_STOP.START,
       FRAMES.RUN_STOP.END,
+      0
+    );
+    createAnim(
+      NAMES.RUN_STOP_SLOW,
+      "run_stop_slow",
+      FRAMES.RUN_STOP_SLOW.START,
+      FRAMES.RUN_STOP_SLOW.END,
       0
     );
     createAnim(
@@ -202,6 +210,17 @@ export class PlayerAnimator {
     );
   }
 
+  private handleAnimationStart = (
+    anim: Phaser.Animations.Animation,
+    frame: Phaser.Animations.AnimationFrame
+  ): void => {
+    const newState = anim.key.replace(/-/g, "") as AnimationState;
+
+    if (newState !== "runSwitch") {
+      this.sprite.setFlipX(this.facingDirection === "left");
+    }
+  };
+
   private handleAnimationComplete = (
     anim: Phaser.Animations.Animation
   ): void => {
@@ -239,7 +258,9 @@ export class PlayerAnimator {
 
   public setFacingDirection(direction: Direction): void {
     this.facingDirection = direction;
-    this.sprite.setFlipX(direction === "left");
+    if (this.currentState !== "runSwitch") {
+      this.sprite.setFlipX(direction === "left");
+    }
   }
 
   public getCurrentFrame(): number | undefined {
@@ -248,5 +269,6 @@ export class PlayerAnimator {
 
   public destroy(): void {
     this.sprite.off("animationcomplete", this.handleAnimationComplete);
+    this.sprite.off("animationstart", this.handleAnimationStart);
   }
 }
