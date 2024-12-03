@@ -1,4 +1,4 @@
-import { JumpConfig, GroundMovementConfig } from "../types/player-physics";
+import { GroundMovementConfig } from "../../types/player-types/player-physics-types";
 
 export const JUMP_CONFIG = {
   GRAVITY: 1000,

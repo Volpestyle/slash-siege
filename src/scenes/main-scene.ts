@@ -1,10 +1,9 @@
-import { Player } from "../sprites/Player";
-import { DebugMode } from "../types/spriteDebug";
+import { Player } from "../adapters/Player";
+import { DebugMode } from "../constants/debug-enums";
 
 export class MainScene extends Phaser.Scene {
   private player!: Player;
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
-
   private platform!: Phaser.GameObjects.Rectangle;
 
   constructor() {
@@ -12,8 +11,6 @@ export class MainScene extends Phaser.Scene {
   }
 
   preload(): void {
-    // Add this method
-    // Load the player sprite sheet
     this.load.atlas(
       "player",
       "assets/animations/player.png",
@@ -25,7 +22,7 @@ export class MainScene extends Phaser.Scene {
     // Add a colored background
     this.cameras.main.setBackgroundColor("#ffffff");
 
-    // Create player
+    // Create player with debug mode
     this.player = new Player(this, 400, 300, { debugMode: DebugMode.Basic });
 
     // Create platform
@@ -34,7 +31,11 @@ export class MainScene extends Phaser.Scene {
     // Add collision detection between the player and the platform
     this.physics.add.collider(this.player, this.platform);
 
-    // Safe keyboard initialization
+    // Initialize keyboard input with safe fallback
+    this.initializeKeyboardInput();
+  }
+
+  private initializeKeyboardInput(): void {
     if (this.input.keyboard) {
       this.cursors = this.input.keyboard.createCursorKeys();
     } else {

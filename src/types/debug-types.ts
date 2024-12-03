@@ -1,8 +1,5 @@
-export enum DebugMode {
-  None = "none",
-  Basic = "basic",
-  Enhanced = "enhanced",
-}
+import { DebugMode } from "../constants/debug-enums";
+
 export interface SpriteDebugConfig {
   showOrigin: boolean;
   showBounds: boolean;
