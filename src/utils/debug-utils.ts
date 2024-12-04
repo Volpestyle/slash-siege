@@ -1,6 +1,6 @@
 // utils/debug.ts
 
-import { PlayerState } from "../types/player-types/player-animation-types";
+import { PlayerStateInterface } from "../types/player-types/player-state-types";
 
 export type DebugConfig = {
   showState: boolean;
@@ -48,14 +48,17 @@ export class PlayerDebugger {
     this.stateText.setOrigin(0.5, 1); // Center horizontally, anchor to bottom
   }
 
-  update(state: PlayerState, sprite: Phaser.Physics.Arcade.Sprite): void {
+  update(
+    state: PlayerStateInterface,
+    sprite: Phaser.Physics.Arcade.Sprite
+  ): void {
     this.graphics.clear();
     this.updateStateText(state, sprite);
     this.drawDebugShapes(state, sprite);
   }
 
   private updateStateText(
-    state: PlayerState,
+    state: PlayerStateInterface,
     sprite: Phaser.Physics.Arcade.Sprite
   ): void {
     const lines: string[] = [];
@@ -70,8 +73,7 @@ export class PlayerDebugger {
     }
 
     if (this.config.showPhysics) {
-      lines.push(`Grounded: ${state.physics.isGrounded}`);
-      lines.push(`Gravity Scale: ${state.physics.gravityScale}`);
+      lines.push(`On Floor: ${state.physics.onFloor}`);
     }
 
     if (this.config.showAnimation) {
@@ -90,7 +92,7 @@ export class PlayerDebugger {
     }
 
     if (this.config.showJump) {
-      lines.push(`Jump State: ${getJumpStateString(state.jump)}`);
+      lines.push(`Jump State: ${state.jump.jumpStage}`);
       lines.push(`Jump Type: ${state.jump.jumpType || "none"}`);
       lines.push(`Max Fall: ${Math.round(state.jump.maxFallVelocity)}`);
     }
@@ -109,7 +111,7 @@ export class PlayerDebugger {
   }
 
   private drawDebugShapes(
-    state: PlayerState,
+    state: PlayerStateInterface,
     sprite: Phaser.Physics.Arcade.Sprite
   ): void {
     // Draw velocity vector
@@ -133,10 +135,7 @@ export class PlayerDebugger {
 
     // Draw ground check rays
     if (this.config.showPhysics) {
-      this.graphics.lineStyle(
-        1,
-        state.physics.isGrounded ? 0x00ff00 : 0xff0000
-      );
+      this.graphics.lineStyle(1, state.physics.onFloor ? 0x00ff00 : 0xff0000);
       this.graphics.beginPath();
       this.graphics.moveTo(bounds.x, bounds.bottom);
       this.graphics.lineTo(bounds.right, bounds.bottom);
@@ -150,10 +149,28 @@ export class PlayerDebugger {
     this.stateText.destroy();
   }
 }
+export class DebugHUD {
+  private fpsText: Phaser.GameObjects.Text;
 
-const getJumpStateString = (jumpState: PlayerState["jump"]): string => {
-  if (jumpState.isJumping) return "Jumping";
-  if (jumpState.isFalling) return "Falling";
-  if (jumpState.isLanding) return "Landing";
-  return "Grounded";
-};
+  constructor(scene: Phaser.Scene) {
+    this.fpsText = scene.add
+      .text(10, 10, "", {
+        color: "#00ff00",
+        fontSize: "16px",
+      } as Phaser.Types.GameObjects.Text.TextStyle)
+      .setDepth(1000)
+      .setScrollFactor(0);
+
+    this.update = this.update.bind(this);
+  }
+
+  update() {
+    const fps = this.fpsText.scene.game.loop.actualFps.toFixed(1);
+    const ms = this.fpsText.scene.game.loop.delta.toFixed(2);
+    this.fpsText.setText([`FPS: ${fps}`, `MS: ${ms}`]);
+  }
+
+  destroy() {
+    this.fpsText.destroy();
+  }
+}

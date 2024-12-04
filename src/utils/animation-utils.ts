@@ -1,30 +1,57 @@
-// utils/animationUtils.ts
+import { ANIMATION_FRAMERATE } from "../constants/animation-constants";
+import { AnimationConfig, AnimationFrameData } from "../types/animation-types";
 
-import { ANIMATION_FRAMERATE } from "../constants/animation-enums";
-import {
-  ANIMATION_FRAMES,
-  ANIMATION_PREFIXES,
-  AnimationStates,
-} from "../constants/player-enums/player-animation-enums";
-import { AnimationConfig } from "../types/animation-types";
-import { AnimationState } from "../types/player-types/player-animation-types";
-
-export const setupPlayerAnimations = (scene: Phaser.Scene): void => {
-  Object.values(AnimationStates).forEach((state) => {
-    const animConfig = ANIMATION_FRAMES[state];
+export const setupAnimations = <T extends { [key: string]: string }>(
+  scene: Phaser.Scene,
+  animations: T,
+  animationFrames: Record<string, AnimationFrameData>,
+  animationPrefixes: Record<string, string>
+): void => {
+  Object.values(animations).forEach((state) => {
+    const animConfig = animationFrames[state];
     if (!animConfig) return;
 
     createAnimation(scene, {
       key: state,
-      prefix: ANIMATION_PREFIXES[state],
+      prefix: animationPrefixes[state],
       start: animConfig.START,
       end: animConfig.END,
       frameRate: ANIMATION_FRAMERATE,
-      repeat: animConfig.REPEAT ?? -1,
+      repeat: animConfig.REPEAT ?? 0,
     });
   });
 };
 
+/**
+ * Sets up animation completion listeners for a sprite.
+ * Provides a generic way to handle animation completion events.
+ *
+ * @param sprite - The sprite to attach listeners to
+ * @param onComplete - Callback function triggered when any animation completes.
+ *                    Receives the completed animation key as a parameter.
+ */
+export const setupAnimationListeners = (
+  sprite: Phaser.GameObjects.Sprite,
+  onComplete: (animationKey: string) => void
+) => {
+  sprite.on("animationcomplete", (animation: Phaser.Animations.Animation) => {
+    console.log("calling complete listener");
+    onComplete(animation.key);
+  });
+};
+
+/**
+ * Creates and configures an animation for the given scene.
+ *
+ * @param scene - Phaser scene to add animation to
+ * @param config - Configuration object containing animation properties
+ * @param config.key - Unique identifier for the animation
+ * @param config.prefix - Prefix for frame names
+ * @param config.start - Starting frame index
+ * @param config.end - Ending frame index
+ * @param config.frameRate - Animation speed in frames per second
+ * @param config.repeat - Number of times to repeat (-1 for infinite)
+ */
 const createAnimation = (
   scene: Phaser.Scene,
   config: AnimationConfig
@@ -44,14 +71,21 @@ const createAnimation = (
   }
 };
 
-// Optional: Helper for playing animations safely
+/**
+ * Safely plays an animation on a sprite if it's not already playing.
+ *
+ * @param sprite - Sprite to play animation on
+ * @param animation - Animation state/key to play
+ * @param ignoreIfPlaying - If true, won't restart animation if already playing
+ */
 export const playAnimation = (
   sprite: Phaser.GameObjects.Sprite,
-  animation: AnimationState,
+  animation: string,
   ignoreIfPlaying: boolean = true
 ): void => {
   const currentAnim = sprite.anims.currentAnim;
   if (!currentAnim || currentAnim.key !== animation) {
+    console.log("playing ", animation);
     sprite.play(animation, ignoreIfPlaying);
   }
 };

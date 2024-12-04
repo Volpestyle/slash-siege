@@ -1,14 +1,18 @@
-export interface JumpConfig {
+import { Directions } from "../../constants/general-enums";
+import { PlayerJumpTypes } from "../../constants/player-constants/player-animation-enums";
+
+export interface PlayerJumpConfig {
   readonly JUMP_VELOCITY: number;
   readonly RUN_JUMP_VELOCITY_Y: number;
   readonly RUN_JUMP_VELOCITY_X: number;
   readonly FORWARD_JUMP_VELOCITY_Y: number;
   readonly FORWARD_JUMP_VELOCITY_X: number;
   readonly HEAVY_LANDING_THRESHOLD: number;
+  readonly MAX_HEAVY_LANDING_THRESHOLD: number;
   readonly GRAVITY: number;
 }
 
-export interface GroundMovementConfig {
+export interface PlayerGroundMovementConfig {
   readonly MAX_SPEED: number;
   readonly MAX_WALK_SPEED: number;
   readonly RUN_ACCELERATION: number;
@@ -24,23 +28,3 @@ export interface GroundMovementConfig {
   readonly RUN_STOP_SLOW_THRESHOLD: number;
   readonly WALK_STOP_THRESHOLD: number;
 }
-
-export type MovementState = {
-  isAccelerating: boolean;
-  isWalking: boolean;
-  wasWalking: boolean;
-  velocity: number;
-  moveDirection: Direction;
-};
-
-export type JumpState = {
-  isJumping: boolean;
-  isFalling: boolean;
-  jumpStartTime: number;
-  fallStartTime: number;
-  currentJumpType: JumpType;
-  hasReleasedSpace: boolean;
-};
-
-export type Direction = "left" | "right";
-export type JumpType = "neutral" | "forward" | "run";

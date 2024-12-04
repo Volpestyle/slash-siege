@@ -1,6 +1,9 @@
-import { GroundMovementConfig } from "../../types/player-types/player-physics-types";
+import {
+  PlayerGroundMovementConfig,
+  PlayerJumpConfig,
+} from "../../types/player-types/player-physics-types";
 
-export const JUMP_CONFIG = {
+export const PLAYER_JUMP_CONFIG: PlayerJumpConfig = {
   GRAVITY: 1000,
   JUMP_VELOCITY: -600,
   FORWARD_JUMP_VELOCITY_X: 400,
@@ -9,9 +12,9 @@ export const JUMP_CONFIG = {
   RUN_JUMP_VELOCITY_Y: -600,
   HEAVY_LANDING_THRESHOLD: 500,
   MAX_HEAVY_LANDING_THRESHOLD: 900,
-} as const;
+};
 
-export const GROUND_MOVEMENT_CONFIG: GroundMovementConfig = {
+export const PLAYER_GROUND_MOVEMENT_CONFIG: PlayerGroundMovementConfig = {
   MAX_SPEED: 500,
   MAX_WALK_SPEED: 250,
   RUN_ACCELERATION: 1500,
@@ -26,22 +29,4 @@ export const GROUND_MOVEMENT_CONFIG: GroundMovementConfig = {
   RUN_STOP_THRESHOLD: 480,
   RUN_STOP_SLOW_THRESHOLD: 400,
   WALK_STOP_THRESHOLD: 150,
-} as const;
-
-// Default initial states
-export const DEFAULT_MOVEMENT_STATE = {
-  isAccelerating: false,
-  isWalking: false,
-  wasWalking: false,
-  velocity: 0,
-  moveDirection: "right" as const,
-};
-
-export const DEFAULT_JUMP_STATE = {
-  isJumping: false,
-  isFalling: false,
-  jumpStartTime: 0,
-  fallStartTime: 0,
-  currentJumpType: "neutral" as const,
-  hasReleasedSpace: true,
 };

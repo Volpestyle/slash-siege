@@ -4,6 +4,11 @@ import { MainScene } from "./scenes/main-scene";
 
 const config: Phaser.Types.Core.GameConfig = {
   type: Phaser.AUTO,
+  fps: {
+    target: 60,
+    forceSetTimeOut: false,
+    deltaHistory: 30,
+  },
   scale: {
     mode: Phaser.Scale.RESIZE,
     width: window.innerWidth,

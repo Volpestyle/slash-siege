@@ -1,8 +1,10 @@
-import { Player } from "../adapters/Player";
+import { PlayerAdapter } from "../adapters/PlayerAdapter";
 import { DebugMode } from "../constants/debug-enums";
+import { DebugHUD } from "../utils/debug-utils";
 
 export class MainScene extends Phaser.Scene {
-  private player!: Player;
+  private debugHUD!: DebugHUD;
+  private player!: PlayerAdapter;
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
   private platform!: Phaser.GameObjects.Rectangle;
 
@@ -19,11 +21,16 @@ export class MainScene extends Phaser.Scene {
   }
 
   create(): void {
+    // Add FPS display
+    this.debugHUD = new DebugHUD(this);
+
     // Add a colored background
     this.cameras.main.setBackgroundColor("#ffffff");
 
     // Create player with debug mode
-    this.player = new Player(this, 400, 300, { debugMode: DebugMode.Basic });
+    this.player = new PlayerAdapter(this, 400, 300, {
+      debugMode: DebugMode.Basic,
+    });
 
     // Create platform
     this.platform = this.add.rectangle(100, 800, 800, 100, 0x00ff00);
@@ -52,6 +59,7 @@ export class MainScene extends Phaser.Scene {
   }
 
   update(time: number, delta: number): void {
+    this.debugHUD.update();
     this.player.update(this.cursors, delta);
   }
 }
