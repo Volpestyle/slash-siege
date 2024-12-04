@@ -17,14 +17,6 @@ export interface PlayerGroundMovementConfig {
   readonly MAX_WALK_SPEED: number;
   readonly RUN_ACCELERATION: number;
   readonly WALK_ACCELERATION: number;
-  readonly RUN_START_ACCELERATION: number;
-  readonly RUN_START_INITIAL_ACCELERATION: number;
-  readonly INITIAL_FRAMES_THRESHOLD: number;
-  readonly IDLE_DECELERATION: number;
   readonly RUN_STOP_DECELERATION: number;
   readonly WALK_STOP_DECELERATION: number;
-  readonly DIRECTION_SWITCH_THRESHOLD: number;
-  readonly RUN_STOP_THRESHOLD: number;
-  readonly RUN_STOP_SLOW_THRESHOLD: number;
-  readonly WALK_STOP_THRESHOLD: number;
 }

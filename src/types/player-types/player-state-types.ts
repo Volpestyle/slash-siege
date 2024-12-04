@@ -21,35 +21,37 @@ export type PlayerInput = {
   readonly delta: number;
 };
 
-export type PlayerStateInterface = {
-  position: { x: number; y: number };
-  velocity: { x: number; y: number };
-  facing: Directions;
-  animation: PlayerAnimations;
-  movement: {
-    isWalking: boolean;
-    isAccelerating: boolean;
-    switchTargetDirection: Directions | null;
-    stoppingInitialSpeed: number | null;
-  };
-  jump: {
-    jumpStage: PlayerJumpStages;
-    hasReleasedSpace: boolean;
-    jumpType: PlayerJumpTypes | null;
-    velocityApplied: boolean;
-    maxFallVelocity: number;
-  };
-  physics: {
-    onFloor: boolean;
-  };
+// Immutable type definitions for each state category
+export interface PlayerMovementState {
+  readonly isWalking: boolean;
+  readonly isAccelerating: boolean;
+  readonly switchTargetDirection: Directions | null;
+  readonly stoppingInitialSpeed: number | null;
+}
 
-  update(input: PlayerInput): void;
-  updatePhysics(
-    x: number,
-    y: number,
-    vx: number,
-    vy: number,
-    onFloor: boolean
-  ): void;
-  handleAnimationComplete(animationKey: string): void;
-};
+export interface PlayerJumpState {
+  readonly jumpStage: PlayerJumpStages;
+  readonly hasReleasedSpace: boolean;
+  readonly jumpType: PlayerJumpTypes | null;
+  readonly velocityApplied: boolean;
+  readonly maxFallVelocity: number;
+  readonly wasAcceleratingOnLand: boolean;
+}
+
+export interface PlayerPhysicsState {
+  readonly onFloor: boolean;
+}
+
+// Main state interface with readonly properties
+export interface PlayerStateInterface {
+  readonly position: Vec2;
+  readonly velocity: Vec2;
+  readonly facing: Directions;
+  readonly animation: PlayerAnimations;
+  readonly movement: PlayerMovementState;
+  readonly jump: PlayerJumpState;
+  readonly physics: PlayerPhysicsState;
+}
+
+// Type-safe mutation helpers
+export type StateUpdater<T> = (current: Readonly<T>) => T;

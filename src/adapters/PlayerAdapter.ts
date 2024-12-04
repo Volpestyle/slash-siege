@@ -16,7 +16,7 @@ import { DebugMode } from "../constants/debug-enums";
 import {
   PLAYER_ANIMATION_FRAMES,
   PLAYER_ANIMATION_PREFIXES,
-} from "../constants/player-constants/player-animation-constants";
+} from "../constants/player-constants/player-animation-frames";
 import { Directions } from "../constants/general-enums";
 import { PlayerState } from "../state/PlayerState";
 
@@ -24,14 +24,12 @@ import { PlayerState } from "../state/PlayerState";
 It's adapting between two distinct interfaces:
 
 1. Phaser's Sprite System
-
 - Properties like body, x, y, velocity
 - Methods like setVelocity, setFlipX, play animation
 - Phaser's physics and rendering systems
 
 2. Our Game's Player Logic System
-
-- PlayerState with game-specific concepts
+- Type-safe PlayerState with game-specific concepts
 - Input handling
 - State transitions and gameplay rules
 
@@ -41,7 +39,7 @@ The PlayerAdapter class is bridging these two worlds by:
  */
 
 export class PlayerAdapter extends Phaser.Physics.Arcade.Sprite {
-  private playerState: PlayerStateInterface;
+  private playerState: PlayerState; // Now using our type-safe PlayerState
   private debugger?: PlayerDebugger;
 
   constructor(
@@ -54,15 +52,7 @@ export class PlayerAdapter extends Phaser.Physics.Arcade.Sprite {
     this.playerState = PlayerState.create(x, y);
     this.setupPhaser(scene);
     this.setupDebugger(scene, debug);
-    setupAnimations(
-      scene,
-      PlayerAnimations,
-      PLAYER_ANIMATION_FRAMES,
-      PLAYER_ANIMATION_PREFIXES
-    );
-    setupAnimationListeners(this, (animationKey) => {
-      this.playerState.handleAnimationComplete(animationKey);
-    });
+    this.setupAnimations(scene);
   }
 
   private setupPhaser(scene: Phaser.Scene): void {
@@ -90,6 +80,19 @@ export class PlayerAdapter extends Phaser.Physics.Arcade.Sprite {
     }
   }
 
+  private setupAnimations(scene: Phaser.Scene): void {
+    setupAnimations(
+      scene,
+      PlayerAnimations,
+      PLAYER_ANIMATION_FRAMES,
+      PLAYER_ANIMATION_PREFIXES
+    );
+
+    setupAnimationListeners(this, (animationKey) => {
+      this.playerState.handleAnimationComplete(animationKey);
+    });
+  }
+
   update(cursors: Phaser.Types.Input.Keyboard.CursorKeys, delta: number): void {
     if (delta === 0) return;
 
@@ -103,7 +106,7 @@ export class PlayerAdapter extends Phaser.Physics.Arcade.Sprite {
       body.onFloor()
     );
 
-    // Update player state
+    // Update player state with mapped input
     this.playerState.update(this.mapCursorsToInput(cursors, delta / 1000));
 
     // Apply state back to Phaser sprite
@@ -129,12 +132,17 @@ export class PlayerAdapter extends Phaser.Physics.Arcade.Sprite {
   }
 
   private applyStateToSprite(): void {
+    // Apply velocity changes
     this.setVelocity(this.playerState.velocity.x, this.playerState.velocity.y);
+
+    // Apply facing direction
     this.setFlipX(this.playerState.facing === Directions.Left);
+
+    // Apply current animation
     playAnimation(this, this.playerState.animation);
   }
 
-  // Public getters for external systems
+  // Public getters for external systems that need read-only access
   public getPlayerState(): Readonly<PlayerStateInterface> {
     return this.playerState;
   }
