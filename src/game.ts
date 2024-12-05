@@ -1,6 +1,6 @@
-// src/game.ts
 import "phaser";
 import { MainScene } from "./scenes/main-scene";
+import VirtualJoystickPlugin from "phaser3-rex-plugins/plugins/virtualjoystick-plugin.js";
 
 const config: Phaser.Types.Core.GameConfig = {
   type: Phaser.AUTO,
@@ -21,13 +21,16 @@ const config: Phaser.Types.Core.GameConfig = {
       gravity: { x: 0, y: 0 },
     },
   },
-  scene: MainScene,
+  scene: MainScene, // Pass the class, not an instance
+  plugins: {
+    global: [
+      {
+        key: "rexVirtualJoystick",
+        plugin: VirtualJoystickPlugin,
+        start: true,
+      },
+    ],
+  },
 };
 
-// Create game instance
 const game = new Phaser.Game(config);
-
-// Add resize listener to update game size when window is resized
-window.addEventListener("resize", () => {
-  game.scale.resize(window.innerWidth, window.innerHeight);
-});

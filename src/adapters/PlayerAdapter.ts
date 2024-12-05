@@ -133,7 +133,7 @@ export class PlayerAdapter extends Phaser.Physics.Arcade.Sprite {
       right: cursors.right.isDown,
       up: cursors.up.isDown,
       down: cursors.down.isDown,
-      space: cursors.space.isDown,
+      space: cursors.space.isDown || cursors.up.isDown,
       shift: cursors.shift.isDown,
       delta,
     };
