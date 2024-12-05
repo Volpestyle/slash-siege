@@ -3,6 +3,7 @@ import { Directions } from "../../constants/general-enums";
 import {
   PlayerAnimations,
   PlayerJumpTypes,
+  PlayerLandingTypes,
 } from "../../constants/player-constants/player-animation-enums";
 import { PlayerJumpStages } from "../../constants/player-constants/player-state-enum";
 
@@ -33,6 +34,7 @@ export interface PlayerJumpState {
   readonly jumpStage: PlayerJumpStages;
   readonly hasReleasedSpace: boolean;
   readonly jumpType: PlayerJumpTypes | null;
+  readonly landingType: PlayerLandingTypes | null;
   readonly velocityApplied: boolean;
   readonly maxFallVelocity: number;
   readonly wasAcceleratingOnLand: boolean;

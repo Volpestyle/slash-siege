@@ -4,6 +4,12 @@ export enum PlayerJumpTypes {
   Run = "run",
 }
 
+export enum PlayerLandingTypes {
+  Heavy = "heavy",
+  Light = "light",
+  Stationary = "stationary",
+}
+
 export enum PlayerAnimations {
   // Ground States
   Idle = "idle",

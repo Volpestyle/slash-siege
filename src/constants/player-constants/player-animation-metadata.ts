@@ -144,7 +144,11 @@ export const PLAYER_ANIMATIONS: Record<
     frames: { start: 0, end: 18 },
     frameRate: ANIMATION_FRAMERATE,
     metadata: {
-      category: AnimationCategory.Landing,
+      category: [
+        AnimationCategory.Landing,
+        AnimationCategory.Stopping,
+        AnimationCategory.Transitioning,
+      ],
       nextAnimation: PlayerAnimations.Idle,
     },
   },
@@ -180,7 +184,11 @@ export const PLAYER_ANIMATIONS: Record<
     frames: { start: 0, end: 18 },
     frameRate: ANIMATION_FRAMERATE,
     metadata: {
-      category: AnimationCategory.Landing,
+      category: [
+        AnimationCategory.Landing,
+        AnimationCategory.Stopping,
+        AnimationCategory.Transitioning,
+      ],
       nextAnimation: PlayerAnimations.Idle,
     },
   },
@@ -240,7 +248,11 @@ export const PLAYER_ANIMATIONS: Record<
     frames: { start: 0, end: 3 },
     frameRate: ANIMATION_FRAMERATE,
     metadata: {
-      category: [AnimationCategory.Landing, AnimationCategory.Transitioning],
+      category: [
+        AnimationCategory.Landing,
+        AnimationCategory.Running,
+        AnimationCategory.Transitioning,
+      ],
 
       nextAnimation: PlayerAnimations.RunLoop,
     },
@@ -250,7 +262,11 @@ export const PLAYER_ANIMATIONS: Record<
     frames: { start: 0, end: 7 },
     frameRate: ANIMATION_FRAMERATE,
     metadata: {
-      category: [AnimationCategory.Landing, AnimationCategory.Transitioning],
+      category: [
+        AnimationCategory.Landing,
+        AnimationCategory.Running,
+        AnimationCategory.Transitioning,
+      ],
 
       nextAnimation: PlayerAnimations.RunLoop,
     },
@@ -289,12 +305,8 @@ export const TRANSITION_ANIMATIONS = new Set(
   getAnimationsByCategory(PLAYER_ANIMATIONS, AnimationCategory.Transitioning)
 );
 
-// Animation groups using updated helpers
-export const CONTINUOUS_ANIMATIONS = new Set(
-  getAnimationsByCategory(PLAYER_ANIMATIONS, [
-    AnimationCategory.Running,
-    AnimationCategory.Walking,
-  ])
+export const RUNNING_ANIMATIONS = new Set(
+  getAnimationsByCategory(PLAYER_ANIMATIONS, AnimationCategory.Transitioning)
 );
 
 export const LANDING_ANIMATIONS = new Set(
