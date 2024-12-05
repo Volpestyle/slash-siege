@@ -1,5 +1,8 @@
 // animation-metadata.ts
 
+import { AnimationConfig } from "../../types/animation-types";
+import { getAnimationsByCategory } from "../../utils/animation-metadata-util";
+import { ANIMATION_FRAMERATE } from "../animation-constants";
 import { PlayerAnimations, PlayerJumpTypes } from "./player-animation-enums";
 
 export enum AnimationCategory {
@@ -13,277 +16,299 @@ export enum AnimationCategory {
   Transitioning = "transitioning",
 }
 
-export interface AnimationInfo {
-  category: AnimationCategory;
-  canInterrupt: boolean;
-  nextAnimation?:
-    | PlayerAnimations
-    | ((isAccelerating: boolean) => PlayerAnimations);
+export interface PlayerAnimationData {
   jumpType?: PlayerJumpTypes;
-  speedThreshold?: number;
+  requiredStamina?: number;
+  // ... other player-specific animation data
 }
 
-export const ANIMATION_METADATA = new Map<PlayerAnimations, AnimationInfo>([
-  // Idle
-  [
-    PlayerAnimations.Idle,
-    {
+export const PLAYER_ANIMATIONS: Record<
+  PlayerAnimations,
+  AnimationConfig<PlayerAnimationData>
+> = {
+  [PlayerAnimations.Idle]: {
+    prefix: "idle",
+    frames: { start: 0, end: 58, repeat: -1 },
+    frameRate: ANIMATION_FRAMERATE,
+    metadata: {
       category: AnimationCategory.Idle,
-      canInterrupt: true,
     },
-  ],
+  },
 
   // Running States
-  [
-    PlayerAnimations.RunStart,
-    {
-      category: AnimationCategory.Transitioning,
-      canInterrupt: true,
+  [PlayerAnimations.RunStart]: {
+    prefix: "run_start",
+    frames: { start: 0, end: 28 },
+    frameRate: ANIMATION_FRAMERATE,
+    metadata: {
+      category: AnimationCategory.Running,
       nextAnimation: PlayerAnimations.RunLoop,
     },
-  ],
-  [
-    PlayerAnimations.RunLoop,
-    {
+  },
+  [PlayerAnimations.RunLoop]: {
+    prefix: "run_loop",
+    frames: { start: 0, end: 16, repeat: -1 },
+    frameRate: ANIMATION_FRAMERATE,
+    metadata: {
       category: AnimationCategory.Running,
-      canInterrupt: true,
     },
-  ],
-  [
-    PlayerAnimations.RunStop,
-    {
+  },
+  [PlayerAnimations.RunStop]: {
+    prefix: "run_stop",
+    frames: { start: 0, end: 32 },
+    frameRate: ANIMATION_FRAMERATE,
+    metadata: {
       category: AnimationCategory.Stopping,
-      canInterrupt: false,
       nextAnimation: PlayerAnimations.Idle,
       speedThreshold: 480,
     },
-  ],
-  [
-    PlayerAnimations.RunStopSlow,
-    {
+  },
+  [PlayerAnimations.RunStopSlow]: {
+    prefix: "run_stop_slow",
+    frames: { start: 0, end: 13 },
+    frameRate: ANIMATION_FRAMERATE,
+    metadata: {
       category: AnimationCategory.Stopping,
-      canInterrupt: false,
       nextAnimation: PlayerAnimations.Idle,
       speedThreshold: 400,
     },
-  ],
-  [
-    PlayerAnimations.RunSwitch,
-    {
+  },
+  [PlayerAnimations.RunSwitch]: {
+    prefix: "run_switch",
+    frames: { start: 0, end: 19 },
+    frameRate: ANIMATION_FRAMERATE,
+    metadata: {
       category: AnimationCategory.Transitioning,
-      canInterrupt: false,
       nextAnimation: PlayerAnimations.RunLoop,
     },
-  ],
+  },
 
   // Walking States
-  [
-    PlayerAnimations.WalkStart,
-    {
+  [PlayerAnimations.WalkStart]: {
+    prefix: "walk_start",
+    frames: { start: 0, end: 11 },
+    frameRate: ANIMATION_FRAMERATE,
+    metadata: {
       category: AnimationCategory.Transitioning,
-      canInterrupt: true,
       nextAnimation: PlayerAnimations.WalkLoop,
     },
-  ],
-  [
-    PlayerAnimations.WalkLoop,
-    {
+  },
+  [PlayerAnimations.WalkLoop]: {
+    prefix: "walk_loop",
+    frames: { start: 0, end: 27, repeat: -1 },
+    frameRate: ANIMATION_FRAMERATE,
+    metadata: {
       category: AnimationCategory.Walking,
-      canInterrupt: true,
     },
-  ],
-  [
-    PlayerAnimations.WalkStop,
-    {
+  },
+  [PlayerAnimations.WalkStop]: {
+    prefix: "walk_stop",
+    frames: { start: 0, end: 12 },
+    frameRate: ANIMATION_FRAMERATE,
+    metadata: {
       category: AnimationCategory.Stopping,
-      canInterrupt: false,
+
       nextAnimation: PlayerAnimations.Idle,
       speedThreshold: 150,
     },
-  ],
+  },
 
-  // Jump States
-  [
-    PlayerAnimations.JumpNeutralStart,
-    {
+  // Neutral Jump States
+  [PlayerAnimations.JumpNeutralStart]: {
+    prefix: "jump_neutral_start",
+    frames: { start: 0, end: 26 },
+    frameRate: ANIMATION_FRAMERATE,
+    metadata: {
       category: AnimationCategory.Jumping,
-      canInterrupt: false,
-      jumpType: PlayerJumpTypes.Neutral,
       nextAnimation: PlayerAnimations.JumpNeutralFall,
+      typeSpecificData: {
+        jumpType: PlayerJumpTypes.Neutral,
+      },
+      physicsFrame: 12,
+      physicsFrameEvent: "playerJumpPhysics",
     },
-  ],
-  [
-    PlayerAnimations.JumpNeutralFall,
-    {
+  },
+  [PlayerAnimations.JumpNeutralFall]: {
+    prefix: "jump_neutral_fall",
+    frames: { start: 0, end: 6, repeat: -1 },
+    frameRate: ANIMATION_FRAMERATE,
+    metadata: {
       category: AnimationCategory.Falling,
-      canInterrupt: true,
-      jumpType: PlayerJumpTypes.Neutral,
+      typeSpecificData: {
+        jumpType: PlayerJumpTypes.Neutral,
+      },
     },
-  ],
-  [
-    PlayerAnimations.JumpNeutralLand,
-    {
+  },
+  [PlayerAnimations.JumpNeutralLand]: {
+    prefix: "jump_neutral_land",
+    frames: { start: 0, end: 18 },
+    frameRate: ANIMATION_FRAMERATE,
+    metadata: {
       category: AnimationCategory.Landing,
-      canInterrupt: false,
       nextAnimation: PlayerAnimations.Idle,
     },
-  ],
+  },
 
   // Forward Jump States
-  [
-    PlayerAnimations.JumpForwardStart,
-    {
+  [PlayerAnimations.JumpForwardStart]: {
+    prefix: "jump_forward_start",
+    frames: { start: 0, end: 22 },
+    frameRate: ANIMATION_FRAMERATE,
+    metadata: {
       category: AnimationCategory.Jumping,
-      canInterrupt: false,
-      jumpType: PlayerJumpTypes.Forward,
       nextAnimation: PlayerAnimations.JumpForwardFall,
+      typeSpecificData: {
+        jumpType: PlayerJumpTypes.Forward,
+      },
+      physicsFrame: 12,
+      physicsFrameEvent: "playerJumpPhysics",
     },
-  ],
-  [
-    PlayerAnimations.JumpForwardFall,
-    {
+  },
+  [PlayerAnimations.JumpForwardFall]: {
+    prefix: "jump_forward_fall",
+    frames: { start: 0, end: 6, repeat: -1 },
+    frameRate: ANIMATION_FRAMERATE,
+    metadata: {
       category: AnimationCategory.Falling,
-      canInterrupt: true,
-      jumpType: PlayerJumpTypes.Forward,
+      typeSpecificData: {
+        jumpType: PlayerJumpTypes.Forward,
+      },
     },
-  ],
-  [
-    PlayerAnimations.JumpForwardLand,
-    {
+  },
+  [PlayerAnimations.JumpForwardLand]: {
+    prefix: "jump_forward_land",
+    frames: { start: 0, end: 18 },
+    frameRate: ANIMATION_FRAMERATE,
+    metadata: {
       category: AnimationCategory.Landing,
-      canInterrupt: false,
       nextAnimation: PlayerAnimations.Idle,
     },
-  ],
+  },
 
   // Run Jump States
-  [
-    PlayerAnimations.RunJumpStart,
-    {
+  [PlayerAnimations.RunJumpStart]: {
+    prefix: "run_jump_start",
+    frames: { start: 0, end: 23 },
+    frameRate: ANIMATION_FRAMERATE,
+    metadata: {
       category: AnimationCategory.Jumping,
-      canInterrupt: true,
-      jumpType: PlayerJumpTypes.Run,
       nextAnimation: PlayerAnimations.RunJumpFall,
+      typeSpecificData: {
+        jumpType: PlayerJumpTypes.Run,
+      },
+      physicsFrame: 8,
+      physicsFrameEvent: "playerJumpPhysics",
     },
-  ],
-  [
-    PlayerAnimations.RunJumpFall,
-    {
+  },
+  [PlayerAnimations.RunJumpFall]: {
+    prefix: "run_jump_fall",
+    frames: { start: 0, end: 6, repeat: -1 },
+    frameRate: ANIMATION_FRAMERATE,
+    metadata: {
       category: AnimationCategory.Falling,
-      canInterrupt: true,
-      jumpType: PlayerJumpTypes.Run,
+      typeSpecificData: {
+        jumpType: PlayerJumpTypes.Run,
+      },
     },
-  ],
-  [
-    PlayerAnimations.RunJumpLandLight,
-    {
+  },
+  [PlayerAnimations.RunJumpLandLight]: {
+    prefix: "run_jump_land_light",
+    frames: { start: 0, end: 9 },
+    frameRate: ANIMATION_FRAMERATE,
+    metadata: {
       category: AnimationCategory.Landing,
-      canInterrupt: false,
       nextAnimation: (isAccelerating: boolean) =>
         isAccelerating
           ? PlayerAnimations.RunJumpLandLightContinue
           : PlayerAnimations.RunJumpLandLightStop,
     },
-  ],
-  [
-    PlayerAnimations.RunJumpLandHeavy,
-    {
+  },
+  [PlayerAnimations.RunJumpLandHeavy]: {
+    prefix: "run_jump_land_heavy",
+    frames: { start: 0, end: 18 },
+    frameRate: ANIMATION_FRAMERATE,
+    metadata: {
       category: AnimationCategory.Landing,
-      canInterrupt: false,
       nextAnimation: (isAccelerating: boolean) =>
         isAccelerating
           ? PlayerAnimations.RunJumpLandHeavyContinue
           : PlayerAnimations.RunJumpLandHeavyStop,
     },
-  ],
-  [
-    PlayerAnimations.RunJumpLandLightContinue,
-    {
-      category: AnimationCategory.Transitioning,
-      canInterrupt: false,
+  },
+  [PlayerAnimations.RunJumpLandLightContinue]: {
+    prefix: "run_jump_land_light_continue",
+    frames: { start: 0, end: 3 },
+    frameRate: ANIMATION_FRAMERATE,
+    metadata: {
+      category: [AnimationCategory.Landing, AnimationCategory.Transitioning],
+
       nextAnimation: PlayerAnimations.RunLoop,
     },
-  ],
-  [
-    PlayerAnimations.RunJumpLandHeavyContinue,
-    {
-      category: AnimationCategory.Transitioning,
-      canInterrupt: false,
+  },
+  [PlayerAnimations.RunJumpLandHeavyContinue]: {
+    prefix: "run_jump_land_heavy_continue",
+    frames: { start: 0, end: 7 },
+    frameRate: ANIMATION_FRAMERATE,
+    metadata: {
+      category: [AnimationCategory.Landing, AnimationCategory.Transitioning],
+
       nextAnimation: PlayerAnimations.RunLoop,
     },
-  ],
-  [
-    PlayerAnimations.RunJumpLandLightStop,
-    {
-      category: AnimationCategory.Stopping,
-      canInterrupt: false,
+  },
+  [PlayerAnimations.RunJumpLandLightStop]: {
+    prefix: "run_jump_land_light_stop",
+    frames: { start: 0, end: 12 },
+    frameRate: ANIMATION_FRAMERATE,
+    metadata: {
+      category: [
+        AnimationCategory.Stopping,
+        AnimationCategory.Landing,
+        AnimationCategory.Transitioning,
+      ],
+
       nextAnimation: PlayerAnimations.Idle,
     },
-  ],
-  [
-    PlayerAnimations.RunJumpLandHeavyStop,
-    {
-      category: AnimationCategory.Stopping,
-      canInterrupt: false,
+  },
+  [PlayerAnimations.RunJumpLandHeavyStop]: {
+    prefix: "run_jump_land_heavy_stop",
+    frames: { start: 0, end: 15 },
+    frameRate: ANIMATION_FRAMERATE,
+    metadata: {
+      category: [
+        AnimationCategory.Stopping,
+        AnimationCategory.Landing,
+        AnimationCategory.Transitioning,
+      ],
+
       nextAnimation: PlayerAnimations.Idle,
     },
-  ],
-]);
+  },
+};
 
-// Helper functions to work with metadata
-export function getAnimationsByCategory(
-  category: AnimationCategory
-): PlayerAnimations[] {
-  return Array.from(ANIMATION_METADATA.entries())
-    .filter(([_, info]) => info.category === category)
-    .map(([anim]) => anim);
-}
+export const TRANSITION_ANIMATIONS = new Set(
+  getAnimationsByCategory(PLAYER_ANIMATIONS, AnimationCategory.Transitioning)
+);
 
-export function getNextAnimation(
-  currentAnimation: PlayerAnimations,
-  isAccelerating: boolean
-): PlayerAnimations | undefined {
-  const metadata = ANIMATION_METADATA.get(currentAnimation);
-  if (!metadata?.nextAnimation) return undefined;
-
-  if (typeof metadata.nextAnimation === "function") {
-    return metadata.nextAnimation(isAccelerating);
-  }
-
-  return metadata.nextAnimation;
-}
-
-export function getJumpTypeForAnimation(
-  animation: PlayerAnimations
-): PlayerJumpTypes | undefined {
-  return ANIMATION_METADATA.get(animation)?.jumpType;
-}
-
-export function canInterruptAnimation(animation: PlayerAnimations): boolean {
-  return ANIMATION_METADATA.get(animation)?.canInterrupt ?? true;
-}
-
-export function getAnimationCategory(
-  animation: PlayerAnimations
-): AnimationCategory {
-  return ANIMATION_METADATA.get(animation)?.category ?? AnimationCategory.Idle;
-}
-
-// Groups for common checks
-export const CONTINUOUS_ANIMATIONS = new Set([
-  AnimationCategory.Running,
-  AnimationCategory.Walking,
-]);
+// Animation groups using updated helpers
+export const CONTINUOUS_ANIMATIONS = new Set(
+  getAnimationsByCategory(PLAYER_ANIMATIONS, [
+    AnimationCategory.Running,
+    AnimationCategory.Walking,
+  ])
+);
 
 export const LANDING_ANIMATIONS = new Set(
-  getAnimationsByCategory(AnimationCategory.Landing)
+  getAnimationsByCategory(PLAYER_ANIMATIONS, AnimationCategory.Landing)
 );
+
 export const JUMPING_ANIMATIONS = new Set(
-  getAnimationsByCategory(AnimationCategory.Jumping)
+  getAnimationsByCategory(PLAYER_ANIMATIONS, AnimationCategory.Jumping)
 );
+
 export const FALLING_ANIMATIONS = new Set(
-  getAnimationsByCategory(AnimationCategory.Falling)
+  getAnimationsByCategory(PLAYER_ANIMATIONS, AnimationCategory.Falling)
 );
+
 export const STOPPING_ANIMATIONS = new Set(
-  getAnimationsByCategory(AnimationCategory.Stopping)
+  getAnimationsByCategory(PLAYER_ANIMATIONS, AnimationCategory.Stopping)
 );

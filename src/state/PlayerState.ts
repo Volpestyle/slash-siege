@@ -19,14 +19,18 @@ import {
 } from "../types/player-types/player-state-types";
 import {
   AnimationCategory,
-  ANIMATION_METADATA,
-  canInterruptAnimation,
-  getAnimationCategory,
-  getNextAnimation,
   STOPPING_ANIMATIONS,
   LANDING_ANIMATIONS,
   CONTINUOUS_ANIMATIONS,
+  PLAYER_ANIMATIONS,
+  JUMPING_ANIMATIONS,
+  TRANSITION_ANIMATIONS,
 } from "../constants/player-constants/player-animation-metadata";
+import {
+  canInterruptAnimation,
+  getAnimationCategory,
+  getNextAnimation,
+} from "../utils/animation-metadata-util";
 
 export class PlayerState implements PlayerStateInterface {
   private state: PlayerStateInterface;
@@ -57,7 +61,6 @@ export class PlayerState implements PlayerStateInterface {
     };
   }
 
-  // Getters for readonly access to state
   get position(): Readonly<Vec2> {
     return this.state.position;
   }
@@ -146,6 +149,11 @@ export class PlayerState implements PlayerStateInterface {
       return;
     }
 
+    // Don't check for landing/falling while waiting for jump physics
+    if (this.isJumping() && !this.state.jump.velocityApplied) {
+      return;
+    }
+
     if (this.shouldTransitionToFalling()) {
       this.transitionToFalling();
       return;
@@ -189,8 +197,31 @@ export class PlayerState implements PlayerStateInterface {
 
   private initiateJump(input: PlayerInput): void {
     const jumpType = this.determineJumpType(input);
-    const direction = this.state.facing === Directions.Left ? -1 : 1;
+    const animation = this.determineJumpAnimation(jumpType);
+    const hasPhysicsEvent =
+      PLAYER_ANIMATIONS[animation]?.metadata.physicsFrameEvent;
 
+    // Only apply velocity immediately if there's no physics event
+    const velocityApplied = !hasPhysicsEvent;
+    if (velocityApplied) {
+      this.applyJumpVelocity(jumpType);
+    }
+
+    this.updateJump((jump) => ({
+      ...jump,
+      jumpStage: PlayerJumpStages.jumping,
+      hasReleasedSpace: false,
+      jumpType,
+      velocityApplied,
+      maxFallVelocity: 0,
+    }));
+  }
+
+  private applyJumpVelocity(
+    jumpType: PlayerJumpTypes,
+    body?: Phaser.Physics.Arcade.Body
+  ): void {
+    const direction = this.state.facing === Directions.Left ? -1 : 1;
     let velocityX = 0;
     let velocityY = PLAYER_JUMP_CONFIG.JUMP_VELOCITY;
 
@@ -205,16 +236,22 @@ export class PlayerState implements PlayerStateInterface {
         break;
     }
 
-    this.updateJump((jump) => ({
-      ...jump,
-      jumpStage: PlayerJumpStages.jumping,
-      hasReleasedSpace: false,
-      jumpType,
-      velocityApplied: true,
-      maxFallVelocity: 0,
-    }));
+    if (body) {
+      body.setVelocity(velocityX, velocityY);
+    } else {
+      this.updateVelocity(() => ({ x: velocityX, y: velocityY }));
+    }
+  }
 
-    this.updateVelocity(() => ({ x: velocityX, y: velocityY }));
+  private determineJumpAnimation(jumpType: PlayerJumpTypes): PlayerAnimations {
+    switch (jumpType) {
+      case PlayerJumpTypes.Run:
+        return PlayerAnimations.RunJumpStart;
+      case PlayerJumpTypes.Forward:
+        return PlayerAnimations.JumpForwardStart;
+      default:
+        return PlayerAnimations.JumpNeutralStart;
+    }
   }
 
   private determineJumpType(input: PlayerInput): PlayerJumpTypes {
@@ -224,11 +261,13 @@ export class PlayerState implements PlayerStateInterface {
   }
 
   private transitionToFalling(): void {
-    this.updateJump((jump) => ({
-      ...jump,
-      jumpStage: PlayerJumpStages.falling,
-      maxFallVelocity: Math.max(jump.maxFallVelocity, this.state.velocity.y),
-    }));
+    this.updateJump((jump) => {
+      return {
+        ...jump,
+        jumpStage: PlayerJumpStages.falling,
+        maxFallVelocity: Math.max(jump.maxFallVelocity, this.state.velocity.y),
+      };
+    });
   }
 
   private transitionToLanding(): void {
@@ -310,19 +349,19 @@ export class PlayerState implements PlayerStateInterface {
   private updateAnimationState(): void {
     const newAnimation = this.determineAnimation();
     if (newAnimation && newAnimation !== this.state.animation) {
-      this.updateState((state) => ({ ...state, animation: newAnimation }));
+      this.updateState((state) => ({
+        ...state,
+        animation: newAnimation,
+      }));
     }
   }
 
   private determineAnimation(): PlayerAnimations | null {
-    const currentCategory = getAnimationCategory(this.state.animation);
-
-    // If current animation can't be interrupted, keep it
-    if (!canInterruptAnimation(this.state.animation)) {
+    // so we can jump out of transition anims (ex. runStart)
+    if (!this.isJumping() && TRANSITION_ANIMATIONS.has(this.state.animation)) {
       return null;
     }
 
-    // Jump animations take precedence
     if (this.isJumping()) {
       return this.getJumpStartAnimation();
     }
@@ -330,38 +369,45 @@ export class PlayerState implements PlayerStateInterface {
     if (this.isFalling()) {
       return this.getFallAnimation();
     }
+
     if (this.isLanding()) {
       return this.determineLandingAnimation();
     }
 
-    // Ground movement animations
-    if (!this.isGrounded()) return null;
+    // // prevent player acceleration from interrupting the current animation if needed
+    // if (!canInterruptAnimation(PLAYER_ANIMATIONS, this.state.animation)) {
+    //   return null;
+    // }
 
+    // stopping animations
     if (!this.state.movement.isAccelerating) {
+      // velocity based stopping animations
       if (this.state.movement.stoppingInitialSpeed !== null) {
-        return this.determineStoppingAnimation();
+        return this.getStoppingAnimation();
       }
       return PlayerAnimations.Idle;
     }
 
+    // direction based animations
     if (this.state.movement.switchTargetDirection) {
       return PlayerAnimations.RunSwitch;
     }
 
+    // walk/run animations
     return this.determineMovementAnimation();
   }
 
-  private determineStoppingAnimation(): PlayerAnimations {
+  private getStoppingAnimation(): PlayerAnimations {
     const speed = this.state.movement.stoppingInitialSpeed!;
 
     // Find the appropriate stopping animation based on speed threshold
-    for (const [animation, metadata] of ANIMATION_METADATA.entries()) {
+    for (const [animation, config] of Object.entries(PLAYER_ANIMATIONS)) {
       if (
-        metadata.category === AnimationCategory.Stopping &&
-        metadata.speedThreshold &&
-        speed > metadata.speedThreshold
+        config.metadata.category === AnimationCategory.Stopping &&
+        config.metadata.speedThreshold &&
+        speed > config.metadata.speedThreshold
       ) {
-        return animation;
+        return animation as PlayerAnimations;
       }
     }
 
@@ -371,12 +417,12 @@ export class PlayerState implements PlayerStateInterface {
   private getJumpStartAnimation(): PlayerAnimations {
     const jumpType = this.state.jump.jumpType ?? PlayerJumpTypes.Neutral;
 
-    for (const [animation, metadata] of ANIMATION_METADATA.entries()) {
+    for (const [animation, config] of Object.entries(PLAYER_ANIMATIONS)) {
       if (
-        metadata.category === AnimationCategory.Jumping &&
-        metadata.jumpType === jumpType
+        config.metadata.category === AnimationCategory.Jumping &&
+        config.metadata.typeSpecificData?.jumpType === jumpType
       ) {
-        return animation;
+        return animation as PlayerAnimations;
       }
     }
     return PlayerAnimations.JumpNeutralStart;
@@ -385,12 +431,12 @@ export class PlayerState implements PlayerStateInterface {
   private getFallAnimation(): PlayerAnimations {
     const jumpType = this.state.jump.jumpType ?? PlayerJumpTypes.Neutral;
 
-    for (const [animation, metadata] of ANIMATION_METADATA.entries()) {
+    for (const [animation, config] of Object.entries(PLAYER_ANIMATIONS)) {
       if (
-        metadata.category === AnimationCategory.Falling &&
-        metadata.jumpType === jumpType
+        config.metadata.category === AnimationCategory.Falling &&
+        config.metadata.typeSpecificData?.jumpType === jumpType
       ) {
-        return animation;
+        return animation as PlayerAnimations;
       }
     }
     return PlayerAnimations.JumpNeutralFall;
@@ -425,25 +471,43 @@ export class PlayerState implements PlayerStateInterface {
         : null;
     }
 
-    const currentCategory = getAnimationCategory(this.state.animation);
-    return CONTINUOUS_ANIMATIONS.has(currentCategory)
+    return this.state.animation === PlayerAnimations.RunLoop
       ? null
       : PlayerAnimations.RunStart;
   }
 
   // Animation completion handling
-  handleAnimationComplete(animationKey: string): void {
+  public handleAnimationComplete(animationKey: string): void {
     const animation = animationKey as PlayerAnimations;
     const nextAnimation = getNextAnimation(
+      PLAYER_ANIMATIONS,
       animation,
       this.state.movement.isAccelerating
-    );
+    ) as PlayerAnimations;
+
+    if (nextAnimation) {
+      this.updateState((state) => ({
+        ...state,
+        animation: nextAnimation,
+      }));
+    }
+
+    if (JUMPING_ANIMATIONS.has(animation)) {
+      // When jump start animation completes, ensure we transition to falling state
+      this.updateJump((jump) => ({
+        ...jump,
+        jumpStage: PlayerJumpStages.falling,
+        maxFallVelocity: Math.max(jump.maxFallVelocity, this.state.velocity.y),
+      }));
+    }
 
     if (LANDING_ANIMATIONS.has(animation)) {
       this.updateJump((jump) => ({
         ...jump,
         jumpStage: PlayerJumpStages.grounded,
         jumpType: null,
+        velocityApplied: false, // Reset velocity applied flag
+        maxFallVelocity: 0,
       }));
 
       this.updateMovement((movement) => ({
@@ -452,6 +516,7 @@ export class PlayerState implements PlayerStateInterface {
       }));
     }
 
+    // Rest of the method remains the same
     if (STOPPING_ANIMATIONS.has(animation)) {
       this.updateMovement((movement) => ({
         ...movement,
@@ -465,13 +530,28 @@ export class PlayerState implements PlayerStateInterface {
         switchTargetDirection: null,
       }));
     }
+  }
 
-    if (nextAnimation) {
-      this.updateState((state) => ({
-        ...state,
-        animation: nextAnimation,
-      }));
+  handleAnimationEvent(
+    eventName: string,
+    data: any,
+    body: Phaser.Physics.Arcade.Body
+  ): void {
+    if (
+      eventName === "playerJumpPhysics" &&
+      data.animationKey === this.state.animation &&
+      !this.state.jump.velocityApplied
+    ) {
+      this.applyJumpVelocity(this.state.jump.jumpType!, body);
+      this.updateJump((jump) => ({ ...jump, velocityApplied: true }));
     }
+  }
+
+  applyVelocity(): void {
+    this.updateJump((jump) => ({
+      ...jump,
+      velocityApplied: true,
+    }));
   }
 
   // Physics state update
@@ -491,9 +571,10 @@ export class PlayerState implements PlayerStateInterface {
   }
 
   // Main update method
-  update(input: PlayerInput): void {
+  update(input: PlayerInput): PlayerStateInterface {
     this.updateJumpState(input);
     this.updateMovementState(input);
     this.updateAnimationState();
+    return this.state;
   }
 }

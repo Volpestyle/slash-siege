@@ -1,46 +1,32 @@
-import { ANIMATION_SCALE } from "../constants/animation-constants";
-import { PlayerAnimations } from "../constants/player-constants/player-animation-enums";
+import {
+  ANIMATION_SCALE,
+  SpriteSheets,
+} from "../constants/animation-constants";
+import {
+  PlayerAnimations,
+  PlayerJumpTypes,
+} from "../constants/player-constants/player-animation-enums";
 import { PLAYER_JUMP_CONFIG } from "../constants/player-constants/player-physics-constants";
 import {
   PlayerInput,
   PlayerStateInterface,
 } from "../types/player-types/player-state-types";
 import { DebugSpriteConfig } from "../types/debug-types";
-import {
-  playAnimation,
-  setupAnimationListeners,
-  setupAnimations,
-} from "../utils/animation-utils";
 import { PlayerDebugger } from "../utils/debug-utils";
 import { DebugMode } from "../constants/debug-enums";
-import {
-  PLAYER_ANIMATION_FRAMES,
-  PLAYER_ANIMATION_PREFIXES,
-} from "../constants/player-constants/player-animation-frames";
 import { Directions } from "../constants/general-enums";
 import { PlayerState } from "../state/PlayerState";
-
-/**
-It's adapting between two distinct interfaces:
-
-1. Phaser's Sprite System
-- Properties like body, x, y, velocity
-- Methods like setVelocity, setFlipX, play animation
-- Phaser's physics and rendering systems
-
-2. Our Game's Player Logic System
-- Type-safe PlayerState with game-specific concepts
-- Input handling
-- State transitions and gameplay rules
-
-The PlayerAdapter class is bridging these two worlds by:
-- Taking Phaser's low-level sprite/physics data and adapting it into our game's state system
-- Taking our game state changes and adapting them back into Phaser's sprite system
- */
+import { AnimationConfig } from "../types/animation-types";
+import {
+  PLAYER_ANIMATIONS,
+  PlayerAnimationData,
+} from "../constants/player-constants/player-animation-metadata";
+import { AnimationManager } from "../utils/AnimationManager";
 
 export class PlayerAdapter extends Phaser.Physics.Arcade.Sprite {
-  private playerState: PlayerState; // Now using our type-safe PlayerState
+  private playerState: PlayerState;
   private debugger?: PlayerDebugger;
+  private animationManager: AnimationManager;
 
   constructor(
     scene: Phaser.Scene,
@@ -50,9 +36,11 @@ export class PlayerAdapter extends Phaser.Physics.Arcade.Sprite {
   ) {
     super(scene, x, y, "player");
     this.playerState = PlayerState.create(x, y);
+    this.animationManager = new AnimationManager(scene, this);
+
     this.setupPhaser(scene);
     this.setupDebugger(scene, debug);
-    this.setupAnimations(scene);
+    this.setupAnimations();
   }
 
   private setupPhaser(scene: Phaser.Scene): void {
@@ -80,17 +68,35 @@ export class PlayerAdapter extends Phaser.Physics.Arcade.Sprite {
     }
   }
 
-  private setupAnimations(scene: Phaser.Scene): void {
-    setupAnimations(
-      scene,
-      PlayerAnimations,
-      PLAYER_ANIMATION_FRAMES,
-      PLAYER_ANIMATION_PREFIXES
+  private setupAnimations(): void {
+    const animationConfigs: AnimationConfig<PlayerAnimationData>[] =
+      Object.entries(PLAYER_ANIMATIONS).map(
+        ([key, config]: [string, AnimationConfig<PlayerAnimationData>]) => ({
+          ...config,
+          key,
+        })
+      );
+
+    this.animationManager.setupAnimations(
+      SpriteSheets.Player,
+      animationConfigs,
+      (eventName: string, data: any) => {
+        const body = this.body as Phaser.Physics.Arcade.Body;
+        this.playerState.handleAnimationEvent(eventName, data, body);
+      }
     );
 
-    setupAnimationListeners(this, (animationKey) => {
-      this.playerState.handleAnimationComplete(animationKey);
-    });
+    // Setup animation completion handling
+    this.animationManager.setupAnimationCompleteListener(
+      (animationKey: string) =>
+        this.playerState.handleAnimationComplete(animationKey)
+    );
+
+    // Check for validation errors
+    const errors = this.animationManager.getValidationErrors();
+    if (errors.length > 0) {
+      console.warn("Animation validation errors:", errors);
+    }
   }
 
   update(cursors: Phaser.Types.Input.Keyboard.CursorKeys, delta: number): void {
@@ -113,7 +119,9 @@ export class PlayerAdapter extends Phaser.Physics.Arcade.Sprite {
     this.applyStateToSprite();
 
     // Update debug if enabled
-    this.debugger?.update(this.playerState, this);
+    if (this.debugger) {
+      this.debugger.update(this.playerState, this);
+    }
   }
 
   private mapCursorsToInput(
@@ -138,11 +146,9 @@ export class PlayerAdapter extends Phaser.Physics.Arcade.Sprite {
     // Apply facing direction
     this.setFlipX(this.playerState.facing === Directions.Left);
 
-    // Apply current animation
-    playAnimation(this, this.playerState.animation);
+    this.animationManager.playAnimation(this, this.playerState.animation);
   }
 
-  // Public getters for external systems that need read-only access
   public getPlayerState(): Readonly<PlayerStateInterface> {
     return this.playerState;
   }
@@ -155,8 +161,18 @@ export class PlayerAdapter extends Phaser.Physics.Arcade.Sprite {
     return this.playerState.facing;
   }
 
-  destroy(): void {
-    this.debugger?.destroy();
-    super.destroy();
+  destroy(fromScene?: boolean): void {
+    if (this.debugger) {
+      this.debugger.destroy();
+    }
+
+    if (this.animationManager) {
+      this.animationManager.destroy();
+    }
+
+    this.removeAllListeners();
+    this.scene.events.off("playerJumpPhysics");
+
+    super.destroy(fromScene);
   }
 }
