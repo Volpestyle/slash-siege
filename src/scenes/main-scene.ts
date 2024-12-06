@@ -1,5 +1,7 @@
 import { PlayerAdapter } from "../adapters/PlayerAdapter";
 import { DebugMode } from "../constants/debug-enums";
+import { MAIN_SCENE_CONFIG } from "../constants/main-scene-consants";
+import { MainSceneConfig } from "../types/main-scene-types";
 import { DebugHUD } from "../utils/debug-utils";
 import { VirtualJoystick } from "../utils/VirtualJoystick";
 
@@ -9,13 +11,7 @@ export class MainScene extends Phaser.Scene {
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
   private platform!: Phaser.GameObjects.Rectangle;
   private virtualJoystick!: VirtualJoystick;
-
-  // Default config values
-  private config = {
-    joyStickDebug: true,
-    playerDebug: true,
-    showFPS: true,
-  };
+  private config: MainSceneConfig = MAIN_SCENE_CONFIG;
 
   constructor() {
     super({ key: "MainScene" });
@@ -32,8 +28,8 @@ export class MainScene extends Phaser.Scene {
   preload(): void {
     this.load.atlas(
       "player",
-      "assets/animations/player.png",
-      "assets/animations/player.json"
+      "assets/animations/player_assets.png",
+      "assets/animations/player_assets.json"
     );
   }
 
@@ -74,12 +70,15 @@ export class MainScene extends Phaser.Scene {
       } as Phaser.Types.Input.Keyboard.CursorKeys;
     }
 
-    try {
-      this.virtualJoystick = new VirtualJoystick(this, {
-        debug: this.config.joyStickDebug,
-      });
-    } catch (error) {
-      console.error("Failed to create VirtualJoystick:", error);
+    // Only create virtual joystick on touch devices
+    if (this.sys.game.device.input.touch) {
+      try {
+        this.virtualJoystick = new VirtualJoystick(this, {
+          debug: this.config.joyStickDebug,
+        });
+      } catch (error) {
+        console.error("Failed to create VirtualJoystick:", error);
+      }
     }
   }
 

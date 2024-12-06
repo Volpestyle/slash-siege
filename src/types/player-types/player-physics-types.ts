@@ -11,11 +11,13 @@ export interface PlayerJumpConfig {
   readonly MAX_HEAVY_LANDING_THRESHOLD: number;
   readonly GRAVITY: number;
   readonly HEAVY_LANDING_IMPACT_VELOCITY: number;
+  readonly RUN_JUMP_THRESHOLD: number;
 }
 
 export interface PlayerGroundMovementConfig {
   readonly MAX_SPEED: number;
   readonly MAX_WALK_SPEED: number;
+  readonly STATIONARY_JUMP_SPEED: number;
   readonly ROLLING_SPEED: number;
   readonly RUN_ACCELERATION: number;
   readonly WALK_ACCELERATION: number;

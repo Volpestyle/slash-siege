@@ -35,10 +35,15 @@ export enum PlayerAnimations {
   // Run Jump States
   RunJumpStart = "runJumpStart",
   RunJumpFall = "runJumpFall",
+
+  // Run Jump Land States
   RunJumpLandLight = "runJumpLandLight",
   RunJumpLandHeavy = "runJumpLandHeavy",
   RunJumpLandLightContinue = "runJumpLandLightContinue",
   RunJumpLandHeavyContinue = "runJumpLandHeavyContinue",
   RunJumpLandLightStop = "runJumpLandLightStop",
   RunJumpLandHeavyStop = "runJumpLandHeavyStop",
+  RunJumpLandBackwardsHeavy = "runJumpLandBackwardsHeavy",
+  RunJumpLandBackwardsHeavyContinue = "RunJumpLandBackwardsContinue",
+  RunJumpLandBackwardsHeavyStop = "RunJumpLandBackwardsStop",
 }

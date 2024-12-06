@@ -249,7 +249,8 @@ export class PlayerState implements PlayerStateInterface {
   }
 
   private determineJumpType(input: PlayerInput): PlayerJumpTypes {
-    if (Math.abs(this.state.velocity.x) > 300) return PlayerJumpTypes.Run;
+    if (Math.abs(this.state.velocity.x) > PLAYER_JUMP_CONFIG.RUN_JUMP_THRESHOLD)
+      return PlayerJumpTypes.Run;
     if (input.left || input.right) return PlayerJumpTypes.Forward;
     return PlayerJumpTypes.Neutral;
   }
@@ -272,7 +273,7 @@ export class PlayerState implements PlayerStateInterface {
       input.down
     ) {
       landingType = PlayerLandingTypes.Heavy;
-      // Apply impact velocity immediately on heavy landingc
+      // Apply impact velocity immediately on heavy landing
       const currentDirection =
         this.state.velocity.x > 0 ? Directions.Right : Directions.Left;
       const impactVelocity =
@@ -342,14 +343,32 @@ export class PlayerState implements PlayerStateInterface {
     direction: Directions | null
   ): number {
     if (direction) {
+      // Rolling-recovery
       if (this.state.jump.landingType === PlayerLandingTypes.Heavy) {
         return direction === Directions.Left
           ? -PLAYER_GROUND_MOVEMENT_CONFIG.ROLLING_SPEED
           : PLAYER_GROUND_MOVEMENT_CONFIG.ROLLING_SPEED;
       }
+      // In a stationary jump animation (neutral/forward)
+      if (
+        (this.state.jump.jumpType !== PlayerJumpTypes.Run &&
+          this.isJumping() &&
+          !this.state.jump.velocityApplied) ||
+        this.state.jump.landingType === PlayerLandingTypes.Stationary
+      ) {
+        return direction === Directions.Left
+          ? -PLAYER_GROUND_MOVEMENT_CONFIG.STATIONARY_JUMP_SPEED
+          : PLAYER_GROUND_MOVEMENT_CONFIG.STATIONARY_JUMP_SPEED;
+      }
       let maxSpeed = this.state.movement.isWalking
         ? PLAYER_GROUND_MOVEMENT_CONFIG.MAX_WALK_SPEED
         : PLAYER_GROUND_MOVEMENT_CONFIG.MAX_SPEED;
+      if (this.state.jump.landingType === PlayerLandingTypes.Light) {
+        return direction === Directions.Left
+          ? -maxSpeed * 0.85
+          : maxSpeed * 0.85;
+      }
+
       return direction === Directions.Left ? -maxSpeed : maxSpeed;
     }
     if (!this.state.physics.onFloor) return this.state.velocity.x;
@@ -391,6 +410,7 @@ export class PlayerState implements PlayerStateInterface {
     }
 
     if (this.isLanding()) {
+      if (LANDING_ANIMATIONS.has(this.state.animation)) return null;
       return this.getLandingAnimation(input);
     }
 
@@ -477,10 +497,13 @@ export class PlayerState implements PlayerStateInterface {
   private getLandingAnimation(input: PlayerInput): PlayerAnimations {
     const { jumpType, landingType, maxFallVelocity, wasAcceleratingOnLand } =
       this.state.jump;
-
     switch (landingType) {
       case PlayerLandingTypes.Heavy:
-        return PlayerAnimations.RunJumpLandHeavy;
+        const currentDirection =
+          this.state.velocity.x > 0 ? Directions.Right : Directions.Left;
+        return this.state.facing === currentDirection
+          ? PlayerAnimations.RunJumpLandHeavy
+          : PlayerAnimations.RunJumpLandBackwardsHeavy;
 
       case PlayerLandingTypes.Light:
         return PlayerAnimations.RunJumpLandLight;

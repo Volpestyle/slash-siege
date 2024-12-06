@@ -21,7 +21,7 @@ const config: Phaser.Types.Core.GameConfig = {
       gravity: { x: 0, y: 0 },
     },
   },
-  scene: MainScene, // Pass the class, not an instance
+  scene: MainScene,
   plugins: {
     global: [
       {

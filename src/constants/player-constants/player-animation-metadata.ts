@@ -116,7 +116,7 @@ export const PLAYER_ANIMATIONS: Record<
   // Neutral Jump States
   [PlayerAnimations.JumpNeutralStart]: {
     prefix: "jump_neutral_start",
-    frames: { start: 0, end: 26 },
+    frames: { start: 0, end: 21 },
     frameRate: ANIMATION_FRAMERATE,
     metadata: {
       category: AnimationCategory.Jumping,
@@ -124,7 +124,7 @@ export const PLAYER_ANIMATIONS: Record<
       typeSpecificData: {
         jumpType: PlayerJumpTypes.Neutral,
       },
-      physicsFrame: 12,
+      physicsFrame: 8,
       physicsFrameEvent: "playerJumpPhysics",
     },
   },
@@ -156,7 +156,7 @@ export const PLAYER_ANIMATIONS: Record<
   // Forward Jump States
   [PlayerAnimations.JumpForwardStart]: {
     prefix: "jump_forward_start",
-    frames: { start: 0, end: 22 },
+    frames: { start: 0, end: 18 },
     frameRate: ANIMATION_FRAMERATE,
     metadata: {
       category: AnimationCategory.Jumping,
@@ -164,7 +164,7 @@ export const PLAYER_ANIMATIONS: Record<
       typeSpecificData: {
         jumpType: PlayerJumpTypes.Forward,
       },
-      physicsFrame: 12,
+      physicsFrame: 8,
       physicsFrameEvent: "playerJumpPhysics",
     },
   },
@@ -286,6 +286,40 @@ export const PLAYER_ANIMATIONS: Record<
     },
   },
   [PlayerAnimations.RunJumpLandHeavyStop]: {
+    prefix: "run_jump_land_heavy_stop",
+    frames: { start: 0, end: 15 },
+    frameRate: ANIMATION_FRAMERATE,
+    metadata: {
+      category: [
+        AnimationCategory.Stopping,
+        AnimationCategory.Landing,
+        AnimationCategory.Transitioning,
+      ],
+
+      nextAnimation: PlayerAnimations.Idle,
+    },
+  },
+  [PlayerAnimations.RunJumpLandBackwardsHeavy]: {
+    prefix: "run_jump_land_backwards_heavy",
+    frames: { start: 0, end: 18 },
+    frameRate: ANIMATION_FRAMERATE,
+    metadata: {
+      category: [AnimationCategory.Landing],
+
+      nextAnimation: PlayerAnimations.Idle,
+    },
+  },
+  [PlayerAnimations.RunJumpLandBackwardsHeavyContinue]: {
+    prefix: "run_jump_land_heavy_stop",
+    frames: { start: 0, end: 9 },
+    frameRate: ANIMATION_FRAMERATE,
+    metadata: {
+      category: [AnimationCategory.Landing, AnimationCategory.Transitioning],
+
+      nextAnimation: PlayerAnimations.Idle,
+    },
+  },
+  [PlayerAnimations.RunJumpLandBackwardsHeavyStop]: {
     prefix: "run_jump_land_heavy_stop",
     frames: { start: 0, end: 15 },
     frameRate: ANIMATION_FRAMERATE,
